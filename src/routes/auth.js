@@ -1,8 +1,14 @@
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
-const { listCompanies, createCompany, getCompanyById, companiesDir } = require('../db/master');
-const { createCompanyDb, getCompanyDb } = require('../db/company');
+const {
+  listCompanies,
+  createCompany,
+  getCompanyById,
+  companiesDir,
+  deleteCompanyById,
+} = require('../db/master');
+const { createCompanyDb, getCompanyDb, closeCompanyDb } = require('../db/company');
 const { slugify } = require('../utils/slug');
 const { hashPassword, comparePassword } = require('../utils/auth');
 const { setFlash } = require('../utils/flash');
@@ -102,6 +108,42 @@ router.post('/companies', async (req, res) => {
 
   setFlash(req, 'success', 'Perusahaan berhasil ditambahkan.');
   res.redirect(`/login?company=${company.id}`);
+});
+
+router.post('/companies/delete', (req, res) => {
+  if (!isSetupKeyValid(req)) {
+    setFlash(req, 'error', 'Setup key salah.');
+    return res.redirect('/select-company');
+  }
+
+  const companyId = Number(req.body.company_id);
+  if (!companyId) {
+    setFlash(req, 'error', 'Perusahaan tidak ditemukan.');
+    return res.redirect('/select-company');
+  }
+
+  const company = getCompanyById(companyId);
+  if (!company) {
+    setFlash(req, 'error', 'Perusahaan tidak ditemukan.');
+    return res.redirect('/select-company');
+  }
+
+  try {
+    closeCompanyDb(company.db_path);
+    if (fs.existsSync(company.db_path)) {
+      fs.unlinkSync(company.db_path);
+    }
+    deleteCompanyById(companyId);
+    if (req.session.companyId === companyId) {
+      req.session.companyId = null;
+      req.session.user = null;
+    }
+    setFlash(req, 'success', 'Perusahaan berhasil dihapus.');
+  } catch (err) {
+    setFlash(req, 'error', 'Gagal menghapus perusahaan.');
+  }
+
+  res.redirect('/select-company');
 });
 
 router.get('/login', (req, res) => {

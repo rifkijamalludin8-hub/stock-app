@@ -39,6 +39,10 @@ function createCompany({ name, slug, dbPath }) {
   return getCompanyById(info.lastInsertRowid);
 }
 
+function deleteCompanyById(id) {
+  return db.prepare('DELETE FROM companies WHERE id = ?').run(id);
+}
+
 module.exports = {
   dataDir,
   companiesDir,
@@ -46,4 +50,5 @@ module.exports = {
   getCompanyById,
   getCompanyBySlug,
   createCompany,
+  deleteCompanyById,
 };

@@ -25,4 +25,15 @@ function createCompanyDb(dbPath) {
   return initDb(dbPath);
 }
 
-module.exports = { getCompanyDb, createCompanyDb };
+function closeCompanyDb(dbPath) {
+  const db = cache.get(dbPath);
+  if (!db) return;
+  try {
+    db.close();
+  } catch (err) {
+    // ignore close errors
+  }
+  cache.delete(dbPath);
+}
+
+module.exports = { getCompanyDb, createCompanyDb, closeCompanyDb };

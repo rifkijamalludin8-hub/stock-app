@@ -81,4 +81,26 @@
   </form>
 </div>
 
+<% if (requireSetupKey && companies.length > 0) { %>
+  <div class="auth-section">
+    <h2>Hapus Perusahaan</h2>
+    <form method="post" action="/companies/delete" class="form-grid" onsubmit="return confirm('Hapus perusahaan ini beserta databasenya?')">
+      <label>
+        Pilih Perusahaan
+        <select name="company_id" required>
+          <option value="">Pilih</option>
+          <% companies.forEach((company) => { %>
+            <option value="<%= company.id %>"><%= company.name %></option>
+          <% }) %>
+        </select>
+      </label>
+      <label>
+        Setup Key
+        <input name="setup_key" type="password" required />
+      </label>
+      <button class="btn danger" type="submit">Hapus Perusahaan</button>
+    </form>
+  </div>
+<% } %>
+
 <%- include('../partials/auth-foot') %>
