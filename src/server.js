@@ -4,6 +4,7 @@ const session = require('express-session');
 const connectRedis = require('connect-redis');
 const { createClient } = require('redis');
 const { flashMiddleware } = require('./utils/flash');
+const { formatPrice } = require('./utils/format');
 const { listCompanies, dataDir } = require('./db/master');
 
 const authRoutes = require('./routes/auth');
@@ -68,6 +69,7 @@ app.use((req, res, next) => {
   res.locals.currentYear = new Date().getFullYear();
   res.locals.requireSetupKey = Boolean(process.env.SETUP_KEY);
   res.locals.divisionWarning = null;
+  res.locals.formatPrice = formatPrice;
   next();
 });
 
