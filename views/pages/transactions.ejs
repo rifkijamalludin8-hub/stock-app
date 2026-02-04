@@ -1,0 +1,86 @@
+<%- include('../partials/head', { pageTitle: type === 'IN' ? 'Transaksi Masuk' : 'Transaksi Keluar', page: type === 'IN' ? 'in' : 'out' }) %>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Tambah Transaksi <%= type %></h3>
+        <p>Input pergerakan stock.</p>
+      </div>
+    </div>
+    <form method="post" action="/transactions" class="form-grid">
+      <input type="hidden" name="type" value="<%= type %>" />
+      <label>
+        Tanggal
+        <input name="txn_date" type="date" value="<%= today %>" />
+      </label>
+      <label>
+        Item
+        <select name="item_id" required>
+          <option value="">Pilih Item</option>
+          <% items.forEach((item) => { %>
+            <option value="<%= item.id %>"><%= item.name %></option>
+          <% }) %>
+        </select>
+      </label>
+      <label>
+        Qty
+        <input name="qty" type="number" step="0.01" required />
+      </label>
+      <% if (showPrice) { %>
+        <label>
+          Harga/Unit
+          <input name="price_per_unit" type="number" step="0.01" />
+        </label>
+      <% } %>
+      <label class="full">
+        Catatan
+        <textarea name="note" rows="2"></textarea>
+      </label>
+      <button class="btn primary" type="submit">Simpan</button>
+    </form>
+    <div class="export-row">
+      <a class="btn ghost" href="/export/transactions?format=xlsx">Export Excel</a>
+      <a class="btn ghost" href="/export/transactions?format=pdf">Export PDF</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Riwayat Transaksi <%= type %></h3>
+        <p>Menampilkan 50 transaksi terakhir.</p>
+      </div>
+      <div class="segmented">
+        <a class="btn <%= type === 'IN' ? 'primary' : 'ghost' %>" href="/transactions?type=IN">Masuk</a>
+        <a class="btn <%= type === 'OUT' ? 'primary' : 'ghost' %>" href="/transactions?type=OUT">Keluar</a>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Tanggal</th>
+            <th>Item</th>
+            <th>Qty</th>
+            <% if (showPrice) { %><th>Harga/Unit</th><% } %>
+            <th>Catatan</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% transactions.forEach((t) => { %>
+            <tr>
+              <td><%= t.txn_date %></td>
+              <td><%= t.item_name %></td>
+              <td><%= t.qty %></td>
+              <% if (showPrice) { %><td><%= t.price_per_unit || '-' %></td><% } %>
+              <td><%= t.note || '-' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/foot') %>

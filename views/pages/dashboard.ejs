@@ -1,0 +1,102 @@
+<%- include('../partials/head', { pageTitle: 'Dashboard', page: 'dashboard' }) %>
+
+<div class="grid-4">
+  <div class="card metric">
+    <div class="metric-label">Total Item</div>
+    <div class="metric-value"><%= metrics.totalItems %></div>
+  </div>
+  <div class="card metric">
+    <div class="metric-label">Jenis Barang</div>
+    <div class="metric-value"><%= metrics.totalGroups %></div>
+  </div>
+  <div class="card metric">
+    <div class="metric-label">Total User</div>
+    <div class="metric-value"><%= metrics.totalUsers %></div>
+  </div>
+  <div class="card metric accent">
+    <div class="metric-label">Total Stock</div>
+    <div class="metric-value"><%= metrics.totalStock %></div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Ringkasan Hari Ini</h3>
+        <p>Aktivitas transaksi hari ini.</p>
+      </div>
+    </div>
+    <div class="summary-row">
+      <div class="summary-box in">Masuk</div>
+      <div class="summary-value"><%= metrics.inToday %></div>
+    </div>
+    <div class="summary-row">
+      <div class="summary-box out">Keluar</div>
+      <div class="summary-value"><%= metrics.outToday %></div>
+    </div>
+    <div class="cta-row">
+      <a class="btn primary" href="/transactions?type=IN">Input Barang Masuk</a>
+      <a class="btn ghost" href="/transactions?type=OUT">Input Barang Keluar</a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Stock Minimum</h3>
+        <p>Item yang perlu segera dicek.</p>
+      </div>
+    </div>
+    <% if (lowStock.length === 0) { %>
+      <div class="empty-state">Semua item aman.</div>
+    <% } else { %>
+      <ul class="list">
+        <% lowStock.forEach((item) => { %>
+          <li>
+            <div>
+              <strong><%= item.name %></strong>
+              <div class="muted">Min: <%= item.min_stock %></div>
+            </div>
+            <div class="pill warning"><%= item.stock %></div>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3>Transaksi Terakhir</h3>
+      <p>Ringkasan transaksi terbaru.</p>
+    </div>
+    <a class="btn ghost" href="/transactions?type=IN">Lihat Semua</a>
+  </div>
+  <div class="table-wrapper">
+    <table>
+      <thead>
+        <tr>
+          <th>Tanggal</th>
+          <th>Item</th>
+          <th>Tipe</th>
+          <th>Qty</th>
+          <% if (showPrice) { %><th>Harga/Unit</th><% } %>
+        </tr>
+      </thead>
+      <tbody>
+        <% recentTransactions.forEach((t) => { %>
+          <tr>
+            <td><%= t.txn_date %></td>
+            <td><%= t.item_name %></td>
+            <td><span class="pill <%= t.type === 'IN' ? 'in' : 'out' %>"><%= t.type %></span></td>
+            <td><%= t.qty %></td>
+            <% if (showPrice) { %><td><%= t.price_per_unit || '-' %></td><% } %>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<%- include('../partials/foot') %>

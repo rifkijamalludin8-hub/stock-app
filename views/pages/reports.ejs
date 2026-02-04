@@ -1,0 +1,91 @@
+<%- include('../partials/head', { pageTitle: 'Laporan Stock', page: 'reports' }) %>
+
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3>Filter Laporan</h3>
+      <p>Pilih range tanggal untuk menghitung saldo awal dan akhir.</p>
+    </div>
+  </div>
+  <form method="get" action="/reports" class="form-inline">
+    <label>
+      Tanggal Mulai
+      <input name="start" type="date" value="<%= start %>" required />
+    </label>
+    <label>
+      Tanggal Akhir
+      <input name="end" type="date" value="<%= end %>" required />
+    </label>
+    <button class="btn primary" type="submit">Tampilkan</button>
+    <% if (rows.length > 0) { %>
+      <div class="export-row">
+        <a class="btn ghost" href="/export/report?format=xlsx&start=<%= start %>&end=<%= end %>">Export Excel</a>
+        <a class="btn ghost" href="/export/report?format=pdf&start=<%= start %>&end=<%= end %>">Export PDF</a>
+      </div>
+    <% } %>
+  </form>
+</div>
+
+<% if (rows.length === 0) { %>
+  <div class="empty-state">Pilih range tanggal untuk melihat laporan.</div>
+<% } else { %>
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Ringkasan Laporan</h3>
+        <p>Perusahaan: <strong><%= company.name %></strong> | Periode: <%= start %> s/d <%= end %></p>
+      </div>
+    </div>
+  </div>
+  <% groups.forEach((group) => { %>
+    <div class="card">
+      <div class="card-header">
+        <div>
+          <h3><%= group.name %></h3>
+          <p>Daftar item berdasarkan kelompok.</p>
+        </div>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Expired</th>
+              <th>Saldo Awal</th>
+              <th>Masuk</th>
+              <th>Keluar</th>
+              <th>Adjustment</th>
+              <th>Saldo Akhir</th>
+              <% if (showPrice) { %>
+                <th>Harga/Unit</th>
+                <th>Nilai Akhir</th>
+              <% } %>
+            </tr>
+          </thead>
+          <tbody>
+            <% group.items.forEach((item) => { %>
+              <tr>
+                <td>
+                  <strong><%= item.item_name %></strong>
+                  <div class="muted"><%= item.unit || '' %></div>
+                </td>
+                <td><%= item.expiry_date || '-' %></td>
+                <td><%= item.opening %></td>
+                <td><%= item.in_qty %></td>
+                <td><%= item.out_qty %></td>
+                <td><%= item.adj_qty %></td>
+                <td><%= item.closing %></td>
+                <% if (showPrice) { %>
+                  <td><%= item.price_per_unit ?? '-' %></td>
+                  <td><%= item.stock_value ?? '-' %></td>
+                <% } %>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% }) %>
+<% } %>
+
+<%- include('../partials/foot') %>

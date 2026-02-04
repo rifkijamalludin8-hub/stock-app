@@ -1,0 +1,43 @@
+<%- include('../partials/auth-head', { pageTitle: 'Setup Awal' }) %>
+
+<h1 class="auth-title">Setup Awal</h1>
+<p class="auth-sub">Buat perusahaan pertama dan user utama.</p>
+
+<form method="post" action="/setup" class="form-grid">
+  <label>
+    Nama Perusahaan
+    <input name="company_name" required />
+  </label>
+  <label>
+    Slug (opsional)
+    <input name="company_slug" />
+  </label>
+  <label>
+    Nama User Utama
+    <input name="user_name" required />
+  </label>
+  <label>
+    Email
+    <input name="email" type="email" required />
+  </label>
+  <label>
+    Password
+    <input name="password" type="password" required />
+  </label>
+  <label>
+    Role
+    <select name="role">
+      <option value="user">User (lihat harga)</option>
+      <option value="admin">Admin (tanpa harga)</option>
+    </select>
+  </label>
+  <% if (requireSetupKey) { %>
+    <label>
+      Setup Key
+      <input name="setup_key" type="password" required />
+    </label>
+  <% } %>
+  <button class="btn primary" type="submit">Simpan</button>
+</form>
+
+<%- include('../partials/auth-foot') %>

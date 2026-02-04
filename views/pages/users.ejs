@@ -1,0 +1,75 @@
+<%- include('../partials/head', { pageTitle: 'Daftar User', page: 'users' }) %>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Tambah User</h3>
+        <p>Hanya role user yang bisa akses daftar ini.</p>
+      </div>
+    </div>
+    <form method="post" action="/users" class="form-grid">
+      <label>
+        Nama
+        <input name="name" required />
+      </label>
+      <label>
+        Email
+        <input name="email" type="email" required />
+      </label>
+      <label>
+        Password
+        <input name="password" type="password" required />
+      </label>
+      <label>
+        Role
+        <select name="role">
+          <option value="admin">Admin (tanpa harga)</option>
+          <option value="user">User (lihat harga)</option>
+        </select>
+      </label>
+      <button class="btn primary" type="submit">Simpan</button>
+    </form>
+    <div class="export-row">
+      <a class="btn ghost" href="/export/users?format=xlsx">Export Excel</a>
+      <a class="btn ghost" href="/export/users?format=pdf">Export PDF</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Daftar User</h3>
+        <p>Total: <%= users.length %> user</p>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% users.forEach((u) => { %>
+            <tr>
+              <td><%= u.name %></td>
+              <td><%= u.email %></td>
+              <td><%= u.role %></td>
+              <td>
+                <form action="/users/<%= u.id %>/delete" method="post" onsubmit="return confirm('Hapus user ini?')">
+                  <button class="btn danger" type="submit">Hapus</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/foot') %>

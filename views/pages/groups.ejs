@@ -1,0 +1,57 @@
+<%- include('../partials/head', { pageTitle: 'Jenis Barang', page: 'groups' }) %>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Tambah Kelompok</h3>
+        <p>Kelompokkan barang agar laporan lebih rapi.</p>
+      </div>
+    </div>
+    <form method="post" action="/groups" class="form-stack">
+      <label>
+        Nama Kelompok
+        <input name="name" required />
+      </label>
+      <label>
+        Deskripsi
+        <textarea name="description" rows="3"></textarea>
+      </label>
+      <button class="btn primary" type="submit">Simpan</button>
+    </form>
+    <div class="export-row">
+      <a class="btn ghost" href="/export/groups?format=xlsx">Export Excel</a>
+      <a class="btn ghost" href="/export/groups?format=pdf">Export PDF</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Daftar Kelompok</h3>
+        <p>Total: <%= groups.length %> kelompok</p>
+      </div>
+    </div>
+    <% if (groups.length === 0) { %>
+      <div class="empty-state">Belum ada data.</div>
+    <% } else { %>
+      <ul class="list">
+        <% groups.forEach((group) => { %>
+          <li>
+            <div>
+              <strong><%= group.name %></strong>
+              <div class="muted"><%= group.description || '-' %></div>
+            </div>
+            <div class="actions">
+              <form action="/groups/<%= group.id %>/delete" method="post" onsubmit="return confirm('Hapus kelompok ini?')">
+                <button class="btn danger" type="submit">Hapus</button>
+              </form>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/foot') %>

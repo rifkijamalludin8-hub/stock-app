@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title><%= pageTitle || 'Aplikasi Stock' %></title>
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">STK</div>
+        <div>
+          <div class="brand-name">Stock Barang</div>
+          <div class="brand-sub">All device ready</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="nav-link <%= page === 'dashboard' ? 'active' : '' %>" href="/">Dashboard</a>
+        <a class="nav-link <%= page === 'groups' ? 'active' : '' %>" href="/groups">Jenis Barang</a>
+        <a class="nav-link <%= page === 'items' ? 'active' : '' %>" href="/items">Daftar Item</a>
+        <a class="nav-link <%= page === 'in' ? 'active' : '' %>" href="/transactions?type=IN">Transaksi Masuk</a>
+        <a class="nav-link <%= page === 'out' ? 'active' : '' %>" href="/transactions?type=OUT">Transaksi Keluar</a>
+        <% if (user && user.role === 'user') { %>
+          <a class="nav-link <%= page === 'adjustments' ? 'active' : '' %>" href="/adjustments">Adjustment</a>
+          <a class="nav-link <%= page === 'users' ? 'active' : '' %>" href="/users">Daftar User</a>
+        <% } %>
+        <a class="nav-link <%= page === 'reports' ? 'active' : '' %>" href="/reports">Laporan</a>
+        <a class="nav-link" href="/select-company">Ganti Perusahaan</a>
+      </nav>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <div class="company-name"><%= company ? company.name : 'Pilih Perusahaan' %></div>
+          <div class="page-title"><%= pageTitle || 'Dashboard' %></div>
+        </div>
+        <div class="user-box">
+          <% if (user) { %>
+            <div class="user-info">
+              <div class="user-name"><%= user.name %></div>
+              <div class="user-role"><%= user.role === 'user' ? 'User' : 'Admin' %></div>
+            </div>
+            <form action="/logout" method="post">
+              <button class="btn ghost" type="submit">Logout</button>
+            </form>
+          <% } else { %>
+            <a class="btn ghost" href="/login">Login</a>
+          <% } %>
+        </div>
+      </header>
+      <section class="content">
+        <% if (flash) { %>
+          <div class="flash <%= flash.type %>"><%= flash.message %></div>
+        <% } %>
