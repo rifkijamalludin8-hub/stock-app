@@ -91,7 +91,7 @@
             <td><%= t.item_name %></td>
             <td><span class="pill <%= t.type === 'IN' ? 'in' : 'out' %>"><%= t.type %></span></td>
             <td><%= t.qty %></td>
-            <% if (showPrice) { %><td><%= t.price_per_unit || '-' %></td><% } %>
+            <% if (showPrice) { %><td><%= formatPrice(t.price_per_unit) %></td><% } %>
           </tr>
         <% }) %>
       </tbody>

@@ -13,7 +13,15 @@ function toCsvValue(value) {
 function exportCsv(res, filename, columns, rows) {
   const header = columns.map((col) => toCsvValue(col.header)).join(',');
   const body = rows
-    .map((row) => columns.map((col) => toCsvValue(row[col.key])).join(','))
+    .map((row) =>
+      columns
+        .map((col) => {
+          const raw = row[col.key];
+          const value = col.format ? col.format(raw) : raw;
+          return toCsvValue(value);
+        })
+        .join(',')
+    )
     .join('\n');
   const csv = header + '\n' + body;
   res.setHeader('Content-Type', 'text/csv');
@@ -24,7 +32,12 @@ function exportCsv(res, filename, columns, rows) {
 async function exportExcel(res, filename, columns, rows) {
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Data');
-  sheet.columns = columns.map((col) => ({ header: col.header, key: col.key, width: col.width || 20 }));
+  sheet.columns = columns.map((col) => ({
+    header: col.header,
+    key: col.key,
+    width: col.width || 20,
+    style: col.numFmt ? { numFmt: col.numFmt } : undefined,
+  }));
   rows.forEach((row) => sheet.addRow(row));
   sheet.getRow(1).font = { bold: true };
   res.setHeader(
@@ -53,9 +66,18 @@ function exportPdf(res, filename, title, columns, rows, options = {}) {
   const rowGap = options.rowGap ?? 6;
   const headerGap = options.headerGap ?? 6;
   const colPadding = options.colPadding ?? 4;
+  const metaFontSize = options.metaFontSize ?? 10;
 
   doc.fontSize(titleFontSize).text(title, { align: 'center' });
   doc.moveDown(0.8);
+
+  if (Array.isArray(options.headerLines) && options.headerLines.length > 0) {
+    doc.fontSize(metaFontSize).fillColor('#111');
+    options.headerLines.forEach((line) => {
+      doc.text(line, { align: 'left' });
+    });
+    doc.moveDown(0.6);
+  }
 
   const availableWidth = doc.page.width - margin * 2;
   const rawWidths = columns.map((col) => col.pdfWidth || col.width || 100);
@@ -105,7 +127,11 @@ function exportPdf(res, filename, title, columns, rows, options = {}) {
     doc.fontSize(bodyFontSize).fillColor('#111');
     const rowHeight = Math.max(
       ...columns.map((col, idx) => {
-        const value = row[col.key] === null || row[col.key] === undefined ? '' : String(row[col.key]);
+        const raw = row[col.key];
+        const value =
+          raw === null || raw === undefined
+            ? ''
+            : String(col.format ? col.format(raw) : raw);
         return doc.heightOfString(value, {
           width: columnWidths[idx] - colPadding * 2,
         });
@@ -113,7 +139,11 @@ function exportPdf(res, filename, title, columns, rows, options = {}) {
     );
     ensurePage(rowHeight);
     columns.forEach((col, idx) => {
-      const value = row[col.key] === null || row[col.key] === undefined ? '' : String(row[col.key]);
+      const raw = row[col.key];
+      const value =
+        raw === null || raw === undefined
+          ? ''
+          : String(col.format ? col.format(raw) : raw);
       doc.text(value, startX + positions[idx] + colPadding, y, {
         width: columnWidths[idx] - colPadding * 2,
         align: 'left',

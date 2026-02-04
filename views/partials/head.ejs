@@ -44,11 +44,15 @@
         <a class="nav-link" href="/select-company">Ganti Perusahaan</a>
       </nav>
     </aside>
+    <div class="overlay"></div>
     <main class="main">
       <header class="topbar">
-        <div>
-          <div class="company-name"><%= company ? company.name : 'Pilih Perusahaan' %></div>
-          <div class="page-title"><%= pageTitle || 'Dashboard' %></div>
+        <div class="topbar-left">
+          <button class="menu-toggle" type="button" aria-label="Menu">☰</button>
+          <div>
+            <div class="company-name"><%= company ? company.name : 'Pilih Perusahaan' %></div>
+            <div class="page-title"><%= pageTitle || 'Dashboard' %></div>
+          </div>
         </div>
         <div class="user-box">
           <% if (user) { %>

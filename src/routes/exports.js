@@ -3,6 +3,7 @@ const dayjs = require('dayjs');
 const { requireCompany, requireAuth, canSeePrice } = require('../utils/auth');
 const { divisionAccess, buildDivisionFilter } = require('../utils/division');
 const { exportCsv, exportExcel, exportPdf } = require('../utils/export');
+const { formatPrice } = require('../utils/format');
 const { getReportRows } = require('../utils/report');
 const { getCurrentStockRows } = require('../utils/stock');
 
@@ -76,7 +77,13 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
       { header: 'Tipe', key: 'type', width: 8 },
       { header: 'Item', key: 'item_label', width: 36 },
       { header: 'Qty', key: 'qty', width: 12 },
-      { header: 'Harga/Unit', key: 'price_per_unit', width: 14 },
+      {
+        header: 'Harga/Unit',
+        key: 'price_per_unit',
+        width: 14,
+        format: formatPrice,
+        numFmt: '"Rp" #,##0.00',
+      },
       { header: 'Catatan', key: 'note', width: 30 },
     ];
     rows = db
@@ -159,15 +166,38 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
       { header: 'Keluar', key: 'out_qty', width: 10, pdfWidth: 45 },
       { header: 'Adjustment', key: 'adj_qty', width: 12, pdfWidth: 60 },
       { header: 'Saldo Akhir', key: 'closing', width: 12, pdfWidth: 60 },
-      { header: 'Harga/Unit', key: 'price_per_unit', width: 14, pdfWidth: 60 },
-      { header: 'Nilai Akhir', key: 'stock_value', width: 14, pdfWidth: 70 },
+      {
+        header: 'Harga/Unit',
+        key: 'price_per_unit',
+        width: 14,
+        pdfWidth: 60,
+        format: formatPrice,
+        numFmt: '"Rp" #,##0.00',
+      },
+      {
+        header: 'Nilai Akhir',
+        key: 'stock_value',
+        width: 14,
+        pdfWidth: 70,
+        format: formatPrice,
+        numFmt: '"Rp" #,##0.00',
+      },
     ];
     rows = reportRows;
     if (!showPrice) {
       columns = columns.filter((col) => !['price_per_unit', 'stock_value'].includes(col.key));
       rows = rows.map(({ price_per_unit, stock_value, ...rest }) => rest);
     }
-    pdfOptions = { layout: 'landscape', bodyFontSize: 7.5, headerFontSize: 7.5, colPadding: 3 };
+    pdfOptions = {
+      layout: 'landscape',
+      bodyFontSize: 7.5,
+      headerFontSize: 7.5,
+      colPadding: 3,
+      headerLines: [
+        `Perusahaan: ${req.company ? req.company.name : '-'}`,
+        `Periode: ${start} s/d ${end}`,
+      ],
+    };
   }
 
   if (columns.length === 0) return res.status(404).send('Resource tidak ditemukan');
