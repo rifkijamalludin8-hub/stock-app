@@ -61,6 +61,19 @@ CREATE TABLE IF NOT EXISTS adjustments (
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS opening_balances (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id INTEGER NOT NULL,
+  qty REAL NOT NULL,
+  price_per_unit REAL,
+  note TEXT,
+  opening_date TEXT NOT NULL,
+  created_by INTEGER,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE CASCADE,
+  FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+);
+
 CREATE TABLE IF NOT EXISTS user_divisions (
   user_id INTEGER NOT NULL,
   division_id INTEGER NOT NULL,
@@ -75,4 +88,6 @@ CREATE INDEX IF NOT EXISTS idx_transactions_item_id ON transactions(item_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(txn_date);
 CREATE INDEX IF NOT EXISTS idx_adjustments_item_id ON adjustments(item_id);
 CREATE INDEX IF NOT EXISTS idx_adjustments_date ON adjustments(adj_date);
+CREATE INDEX IF NOT EXISTS idx_opening_item_id ON opening_balances(item_id);
+CREATE INDEX IF NOT EXISTS idx_opening_date ON opening_balances(opening_date);
 CREATE INDEX IF NOT EXISTS idx_user_divisions_user_id ON user_divisions(user_id);

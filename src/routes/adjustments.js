@@ -1,13 +1,24 @@
 const express = require('express');
 const dayjs = require('dayjs');
 const { requireCompany, requireAuth, requireRole } = require('../utils/auth');
+const { divisionAccess, buildDivisionFilter } = require('../utils/division');
 const { setFlash } = require('../utils/flash');
 
 const router = express.Router();
 
-router.get('/adjustments', requireCompany, requireAuth, requireRole('user'), (req, res) => {
+router.get('/adjustments', requireCompany, requireAuth, requireRole('user'), divisionAccess, (req, res) => {
   const db = req.db;
-  const items = db.prepare('SELECT id, name FROM items ORDER BY name ASC').all();
+  const filter = buildDivisionFilter(req.divisionIds, 'd.id');
+  const items = db
+    .prepare(
+      `SELECT i.id, i.name, i.expiry_date, g.name AS group_name
+       FROM items i
+       JOIN item_groups g ON g.id = i.group_id
+       JOIN divisions d ON d.id = g.division_id
+       WHERE 1=1 ${filter.clause}
+       ORDER BY g.name ASC, i.name ASC`
+    )
+    .all(...filter.params);
   const adjustments = db
     .prepare(
       `SELECT a.*, i.name AS item_name

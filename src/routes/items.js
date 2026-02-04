@@ -68,7 +68,7 @@ router.get('/items', requireCompany, requireAuth, divisionAccess, (req, res) => 
 });
 
 router.post('/items', requireCompany, requireAuth, divisionAccess, (req, res) => {
-  const { name, group_id, sku, unit, expiry_date, min_stock } = req.body;
+  let { name, group_id, sku, unit, expiry_date, min_stock } = req.body;
   if (!name || !group_id) {
     setFlash(req, 'error', 'Nama item dan kelompok wajib diisi.');
     return res.redirect('/items');
@@ -81,6 +81,15 @@ router.post('/items', requireCompany, requireAuth, divisionAccess, (req, res) =>
     }
   }
   try {
+    if (!sku) {
+      const row = req.db
+        .prepare(
+          "SELECT MAX(CAST(sku AS INTEGER)) AS maxSku FROM items WHERE sku GLOB '[0-9]*' AND sku != ''"
+        )
+        .get();
+      const nextSku = (row && row.maxSku ? Number(row.maxSku) : 0) + 1;
+      sku = String(nextSku).padStart(4, '0');
+    }
     req.db
       .prepare(
         'INSERT INTO items (name, group_id, sku, unit, expiry_date, min_stock, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'

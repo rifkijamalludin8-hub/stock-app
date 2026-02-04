@@ -1,0 +1,85 @@
+<%- include('../partials/head', { pageTitle: 'Stock Awal', page: 'opening' }) %>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Input Stock Awal</h3>
+        <p>Hanya user yang bisa input. Admin hanya melihat daftar.</p>
+      </div>
+    </div>
+    <% if (canCreate) { %>
+      <form method="post" action="/opening" class="form-grid">
+        <label>
+          Tanggal Stock Awal
+          <input name="opening_date" type="date" value="<%= today %>" required />
+        </label>
+        <label>
+          Item (Jenis - Nama - Exp)
+          <select name="item_id" required>
+            <option value="">Pilih Item</option>
+            <% items.forEach((item) => { %>
+              <option value="<%= item.id %>"><%= item.group_name %> - <%= item.name %> - <%= item.expiry_date || '-' %></option>
+            <% }) %>
+          </select>
+        </label>
+        <label>
+          Qty
+          <input name="qty" type="number" step="0.01" required />
+        </label>
+        <% if (showPrice) { %>
+          <label>
+            Harga/Unit
+            <input name="price_per_unit" type="number" step="0.01" />
+          </label>
+        <% } %>
+        <label class="full">
+          Catatan
+          <textarea name="note" rows="2"></textarea>
+        </label>
+        <button class="btn primary" type="submit">Simpan</button>
+      </form>
+    <% } else { %>
+      <div class="empty-state">Hanya user yang bisa input stock awal.</div>
+    <% } %>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Daftar Stock Awal</h3>
+        <p>Riwayat input stock awal.</p>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Tanggal</th>
+            <th>Divisi</th>
+            <th>Jenis Barang</th>
+            <th>Item</th>
+            <th>Qty</th>
+            <% if (showPrice) { %><th>Harga/Unit</th><% } %>
+            <th>Catatan</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% openings.forEach((row) => { %>
+            <tr>
+              <td><%= row.opening_date %></td>
+              <td><%= row.division_name %></td>
+              <td><%= row.group_name %></td>
+              <td><%= row.item_name %> - <%= row.expiry_date || '-' %></td>
+              <td><%= row.qty %></td>
+              <% if (showPrice) { %><td><%= row.price_per_unit || '-' %></td><% } %>
+              <td><%= row.note || '-' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<%- include('../partials/foot') %>

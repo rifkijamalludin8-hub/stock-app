@@ -76,8 +76,8 @@
                   <% group.items.forEach((item) => { %>
                     <tr>
                       <td>
-                        <strong><%= item.name %></strong>
-                        <div class="muted"><%= item.sku || '-' %></div>
+                        <strong><%= group.name %> - <%= item.name %> - <%= item.expiry_date || '-' %></strong>
+                        <div class="muted">SKU: <%= item.sku || '-' %></div>
                       </td>
                       <td><%= item.stock %> <%= item.unit || '' %></td>
                       <td><%= item.expiry_date || '-' %></td>

@@ -35,6 +35,18 @@ function ensureSchema(db) {
     PRIMARY KEY (user_id, division_id)
   );`);
 
+  // Ensure opening_balances table exists
+  db.exec(`CREATE TABLE IF NOT EXISTS opening_balances (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_id INTEGER NOT NULL,
+    qty REAL NOT NULL,
+    price_per_unit REAL,
+    note TEXT,
+    opening_date TEXT NOT NULL,
+    created_by INTEGER,
+    created_at TEXT NOT NULL
+  );`);
+
   // Seed default division if empty
   const divisionCount = db.prepare('SELECT COUNT(*) as count FROM divisions').get().count;
   if (divisionCount === 0) {
@@ -49,6 +61,8 @@ function ensureSchema(db) {
 
   db.exec('CREATE INDEX IF NOT EXISTS idx_groups_division_id ON item_groups(division_id);');
   db.exec('CREATE INDEX IF NOT EXISTS idx_user_divisions_user_id ON user_divisions(user_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_opening_item_id ON opening_balances(item_id);');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_opening_date ON opening_balances(opening_date);');
 }
 
 function initDb(dbPath) {

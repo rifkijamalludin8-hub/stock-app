@@ -12,6 +12,7 @@ function getCurrentStockRows(db, divisionIds = null) {
       d.name AS division_name,
       COALESCE(SUM(CASE WHEN t.type = 'IN' THEN t.qty ELSE -t.qty END), 0)
         + COALESCE((SELECT SUM(qty_delta) FROM adjustments a WHERE a.item_id = items.id), 0)
+        + COALESCE((SELECT SUM(qty) FROM opening_balances ob WHERE ob.item_id = items.id), 0)
         AS stock
     FROM items
     JOIN item_groups g ON g.id = items.group_id

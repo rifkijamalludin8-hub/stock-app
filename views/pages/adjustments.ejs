@@ -18,7 +18,7 @@
         <select name="item_id" required>
           <option value="">Pilih Item</option>
           <% items.forEach((item) => { %>
-            <option value="<%= item.id %>"><%= item.name %></option>
+            <option value="<%= item.id %>"><%= item.group_name %> - <%= item.name %> - <%= item.expiry_date || '-' %></option>
           <% }) %>
         </select>
       </label>

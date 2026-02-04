@@ -13,12 +13,12 @@ router.get('/transactions', requireCompany, requireAuth, divisionAccess, (req, r
 
   const items = db
     .prepare(
-      `SELECT i.id, i.name
+      `SELECT i.id, i.name, i.expiry_date, g.name AS group_name
        FROM items i
        JOIN item_groups g ON g.id = i.group_id
        JOIN divisions d ON d.id = g.division_id
        WHERE 1=1 ${filter.clause}
-       ORDER BY i.name ASC`
+       ORDER BY g.name ASC, i.name ASC`
     )
     .all(...filter.params);
   const transactions = db

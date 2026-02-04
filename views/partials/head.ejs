@@ -32,6 +32,7 @@
         <% } %>
         <a class="nav-link <%= page === 'groups' ? 'active' : '' %>" href="/groups">Jenis Barang</a>
         <a class="nav-link <%= page === 'items' ? 'active' : '' %>" href="/items">Daftar Item</a>
+        <a class="nav-link <%= page === 'opening' ? 'active' : '' %>" href="/opening">Stock Awal</a>
         <a class="nav-link <%= page === 'in' ? 'active' : '' %>" href="/transactions?type=IN">Transaksi Masuk</a>
         <a class="nav-link <%= page === 'out' ? 'active' : '' %>" href="/transactions?type=OUT">Transaksi Keluar</a>
         <% if (user && user.role === 'user') { %>

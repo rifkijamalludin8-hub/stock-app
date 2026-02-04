@@ -22,6 +22,12 @@ function getReportRows(db, startDate, endDate, divisionIds = null) {
         WHERE adj_date < ?
         GROUP BY item_id
       ),
+      opening_before AS (
+        SELECT item_id, SUM(qty) qty
+        FROM opening_balances
+        WHERE opening_date <= ?
+        GROUP BY item_id
+      ),
       in_range AS (
         SELECT item_id, SUM(qty) qty
         FROM transactions
@@ -47,6 +53,7 @@ function getReportRows(db, startDate, endDate, divisionIds = null) {
       i.name AS item_name,
       i.expiry_date,
       i.unit,
+      COALESCE(opening_before.qty, 0) AS opening_qty,
       COALESCE(in_before.qty, 0) AS in_before,
       COALESCE(out_before.qty, 0) AS out_before,
       COALESCE(adj_before.qty, 0) AS adj_before,
@@ -54,13 +61,20 @@ function getReportRows(db, startDate, endDate, divisionIds = null) {
       COALESCE(out_range.qty, 0) AS out_qty,
       COALESCE(adj_range.qty, 0) AS adj_qty,
       (
-        SELECT t.price_per_unit
-        FROM transactions t
-        WHERE t.item_id = i.id
-          AND t.type = 'IN'
-          AND t.txn_date <= ?
-          AND t.price_per_unit IS NOT NULL
-        ORDER BY t.txn_date DESC, t.id DESC
+        SELECT price_per_unit FROM (
+          SELECT t.txn_date AS dt, t.price_per_unit
+          FROM transactions t
+          WHERE t.item_id = i.id
+            AND t.type = 'IN'
+            AND t.price_per_unit IS NOT NULL
+          UNION ALL
+          SELECT ob.opening_date AS dt, ob.price_per_unit
+          FROM opening_balances ob
+          WHERE ob.item_id = i.id
+            AND ob.price_per_unit IS NOT NULL
+        )
+        WHERE dt <= ?
+        ORDER BY dt DESC
         LIMIT 1
       ) AS price_per_unit
     FROM items i
@@ -69,6 +83,7 @@ function getReportRows(db, startDate, endDate, divisionIds = null) {
     LEFT JOIN in_before ON in_before.item_id = i.id
     LEFT JOIN out_before ON out_before.item_id = i.id
     LEFT JOIN adj_before ON adj_before.item_id = i.id
+    LEFT JOIN opening_before ON opening_before.item_id = i.id
     LEFT JOIN in_range ON in_range.item_id = i.id
     LEFT JOIN out_range ON out_range.item_id = i.id
     LEFT JOIN adj_range ON adj_range.item_id = i.id
@@ -77,6 +92,7 @@ function getReportRows(db, startDate, endDate, divisionIds = null) {
   `;
 
   const params = [
+    startDate,
     startDate,
     startDate,
     startDate,
@@ -92,7 +108,7 @@ function getReportRows(db, startDate, endDate, divisionIds = null) {
   const rows = db.prepare(sql).all(...params, ...filter.params);
 
   return rows.map((row) => {
-    const opening = row.in_before - row.out_before + row.adj_before;
+    const opening = row.opening_qty + row.in_before - row.out_before + row.adj_before;
     const closing = opening + row.in_qty - row.out_qty + row.adj_qty;
     return {
       division_name: row.division_name,
