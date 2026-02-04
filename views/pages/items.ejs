@@ -8,38 +8,78 @@
         <p>Isi data item termasuk expired date.</p>
       </div>
     </div>
-    <form method="post" action="/items" class="form-grid">
-      <label>
-        Nama Item
-        <input name="name" required />
-      </label>
-      <label>
-        Jenis Barang
-        <select name="group_id" required>
-          <option value="">Pilih Jenis Barang</option>
-          <% groups.forEach((group) => { %>
-            <option value="<%= group.id %>"><%= group.division_name %> • <%= group.name %></option>
-          <% }) %>
-        </select>
-      </label>
-      <label>
-        SKU
-        <input name="sku" />
-      </label>
-      <label>
-        Satuan
-        <input name="unit" placeholder="pcs / box" />
-      </label>
-      <label>
-        Expired Date
-        <input name="expiry_date" type="date" />
-      </label>
-      <label>
-        Min Stock
-        <input name="min_stock" type="number" step="0.01" value="0" />
-      </label>
-      <button class="btn primary" type="submit">Simpan</button>
-    </form>
+    <% if (editItem) { %>
+      <form method="post" action="/items/<%= editItem.id %>/update" class="form-grid">
+        <label>
+          Nama Item
+          <input name="name" value="<%= editItem.name %>" required />
+        </label>
+        <label>
+          Jenis Barang
+          <select name="group_id" required>
+            <option value="">Pilih Jenis Barang</option>
+            <% groups.forEach((group) => { %>
+              <option value="<%= group.id %>" <%= String(group.id) === String(editItem.group_id) ? 'selected' : '' %>>
+                <%= group.division_name %> • <%= group.name %>
+              </option>
+            <% }) %>
+          </select>
+        </label>
+        <label>
+          SKU
+          <input name="sku" value="<%= editItem.sku || '' %>" />
+        </label>
+        <label>
+          Satuan
+          <input name="unit" value="<%= editItem.unit || '' %>" placeholder="pcs / box" />
+        </label>
+        <label>
+          Expired Date
+          <input name="expiry_date" type="date" value="<%= editItem.expiry_date || '' %>" />
+        </label>
+        <label>
+          Min Stock
+          <input name="min_stock" type="number" step="0.01" value="<%= editItem.min_stock || 0 %>" />
+        </label>
+        <div class="actions">
+          <button class="btn primary" type="submit">Simpan Perubahan</button>
+          <a class="btn ghost" href="/items">Batal</a>
+        </div>
+      </form>
+    <% } else { %>
+      <form method="post" action="/items" class="form-grid">
+        <label>
+          Nama Item
+          <input name="name" required />
+        </label>
+        <label>
+          Jenis Barang
+          <select name="group_id" required>
+            <option value="">Pilih Jenis Barang</option>
+            <% groups.forEach((group) => { %>
+              <option value="<%= group.id %>"><%= group.division_name %> • <%= group.name %></option>
+            <% }) %>
+          </select>
+        </label>
+        <label>
+          SKU
+          <input name="sku" />
+        </label>
+        <label>
+          Satuan
+          <input name="unit" placeholder="pcs / box" />
+        </label>
+        <label>
+          Expired Date
+          <input name="expiry_date" type="date" />
+        </label>
+        <label>
+          Min Stock
+          <input name="min_stock" type="number" step="0.01" value="0" />
+        </label>
+        <button class="btn primary" type="submit">Simpan</button>
+      </form>
+    <% } %>
     <div class="export-row">
       <a class="btn ghost" href="/export/items?format=xlsx">Export Excel</a>
       <a class="btn ghost" href="/export/items?format=pdf">Export PDF</a>
@@ -83,9 +123,12 @@
                       <td><%= item.expiry_date || '-' %></td>
                       <td><%= item.min_stock %></td>
                       <td>
-                        <form action="/items/<%= item.id %>/delete" method="post" onsubmit="return confirm('Hapus item ini?')">
-                          <button class="btn danger" type="submit">Hapus</button>
-                        </form>
+                        <div class="actions">
+                          <a class="btn ghost" href="/items?edit=<%= item.id %>">Edit</a>
+                          <form action="/items/<%= item.id %>/delete" method="post" onsubmit="return confirm('Hapus item ini?')">
+                            <button class="btn danger" type="submit">Hapus</button>
+                          </form>
+                        </div>
                       </td>
                     </tr>
                   <% }) %>

@@ -9,6 +9,7 @@ const router = express.Router();
 router.get('/items', requireCompany, requireAuth, divisionAccess, (req, res) => {
   const db = req.db;
   const filter = buildDivisionFilter(req.divisionIds, 'd.id');
+  const editId = req.query.edit ? Number(req.query.edit) : null;
   const divisions = db.prepare('SELECT * FROM divisions ORDER BY name ASC').all();
   const groups = db
     .prepare(
@@ -64,7 +65,27 @@ router.get('/items', requireCompany, requireAuth, divisionAccess, (req, res) => 
     return clean;
   });
 
-  res.render('pages/items', { divisions: divisionsData, groups, divisionsList: allowedDivisions });
+  let editItem = null;
+  if (editId) {
+    const item = db
+      .prepare(
+        `SELECT i.*, g.id AS group_id, g.division_id
+         FROM items i
+         JOIN item_groups g ON g.id = i.group_id
+         WHERE i.id = ?`
+      )
+      .get(editId);
+    if (item && (!req.divisionIds || req.divisionIds.includes(item.division_id))) {
+      editItem = item;
+    }
+  }
+
+  res.render('pages/items', {
+    divisions: divisionsData,
+    groups,
+    divisionsList: allowedDivisions,
+    editItem,
+  });
 });
 
 router.post('/items', requireCompany, requireAuth, divisionAccess, (req, res) => {
@@ -135,6 +156,7 @@ router.post('/items/:id/update', requireCompany, requireAuth, divisionAccess, (r
 
 router.post('/items/:id/delete', requireCompany, requireAuth, divisionAccess, (req, res) => {
   const { id } = req.params;
+  const numericId = Number(id);
   if (req.divisionIds) {
     const item = req.db
       .prepare(
@@ -143,14 +165,32 @@ router.post('/items/:id/delete', requireCompany, requireAuth, divisionAccess, (r
          JOIN item_groups g ON g.id = i.group_id
          WHERE i.id = ?`
       )
-      .get(id);
+      .get(numericId);
     if (!item || !req.divisionIds.includes(item.division_id)) {
       setFlash(req, 'error', 'Tidak punya akses ke divisi tersebut.');
       return res.redirect('/items');
     }
   }
+  const stockMap = getCurrentStockMap(req.db, req.divisionIds);
+  const currentStock = stockMap.get(numericId) || 0;
+  if (currentStock !== 0) {
+    setFlash(req, 'error', 'Item tidak bisa dihapus karena masih ada stock. Hubungi user utama.');
+    return res.redirect('/items');
+  }
+  const historyCount = req.db
+    .prepare(
+      `SELECT
+        (SELECT COUNT(*) FROM transactions WHERE item_id = ?) +
+        (SELECT COUNT(*) FROM adjustments WHERE item_id = ?) +
+        (SELECT COUNT(*) FROM opening_balances WHERE item_id = ?) AS count`
+    )
+    .get(numericId, numericId, numericId).count;
+  if (historyCount > 0) {
+    setFlash(req, 'error', 'Item tidak bisa dihapus karena sudah ada riwayat transaksi. Hubungi user utama.');
+    return res.redirect('/items');
+  }
   try {
-    req.db.prepare('DELETE FROM items WHERE id = ?').run(id);
+    req.db.prepare('DELETE FROM items WHERE id = ?').run(numericId);
     setFlash(req, 'success', 'Item dihapus.');
   } catch (err) {
     setFlash(req, 'error', 'Item tidak bisa dihapus karena ada transaksi.');
