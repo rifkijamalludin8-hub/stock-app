@@ -19,6 +19,7 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
   let rows = [];
   let title = 'Export';
   let filename = `${resource}-${dayjs().format('YYYYMMDD')}`;
+  let pdfOptions = null;
 
   if (resource === 'groups') {
     title = 'Daftar Kelompok Barang';
@@ -138,30 +139,31 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
     filename = `laporan-stock-${start}-sd-${end}`;
     const reportRows = getReportRows(db, start, end, req.divisionIds);
     columns = [
-      { header: 'Divisi', key: 'division_name', width: 22 },
-      { header: 'Kelompok', key: 'group_name', width: 22 },
-      { header: 'Item', key: 'item_name', width: 26 },
-      { header: 'Expired', key: 'expiry_date', width: 14 },
-      { header: 'Saldo Awal', key: 'opening', width: 12 },
-      { header: 'Masuk', key: 'in_qty', width: 10 },
-      { header: 'Keluar', key: 'out_qty', width: 10 },
-      { header: 'Adjustment', key: 'adj_qty', width: 12 },
-      { header: 'Saldo Akhir', key: 'closing', width: 12 },
-      { header: 'Harga/Unit', key: 'price_per_unit', width: 14 },
-      { header: 'Nilai Akhir', key: 'stock_value', width: 14 },
+      { header: 'Divisi', key: 'division_name', width: 22, pdfWidth: 70 },
+      { header: 'Kelompok', key: 'group_name', width: 22, pdfWidth: 70 },
+      { header: 'Item', key: 'item_name', width: 26, pdfWidth: 130 },
+      { header: 'Expired', key: 'expiry_date', width: 14, pdfWidth: 55 },
+      { header: 'Saldo Awal', key: 'opening', width: 12, pdfWidth: 55 },
+      { header: 'Masuk', key: 'in_qty', width: 10, pdfWidth: 45 },
+      { header: 'Keluar', key: 'out_qty', width: 10, pdfWidth: 45 },
+      { header: 'Adjustment', key: 'adj_qty', width: 12, pdfWidth: 60 },
+      { header: 'Saldo Akhir', key: 'closing', width: 12, pdfWidth: 60 },
+      { header: 'Harga/Unit', key: 'price_per_unit', width: 14, pdfWidth: 60 },
+      { header: 'Nilai Akhir', key: 'stock_value', width: 14, pdfWidth: 70 },
     ];
     rows = reportRows;
     if (!showPrice) {
       columns = columns.filter((col) => !['price_per_unit', 'stock_value'].includes(col.key));
       rows = rows.map(({ price_per_unit, stock_value, ...rest }) => rest);
     }
+    pdfOptions = { layout: 'landscape', bodyFontSize: 7.5, headerFontSize: 7.5, colPadding: 3 };
   }
 
   if (columns.length === 0) return res.status(404).send('Resource tidak ditemukan');
 
   if (format === 'csv') return exportCsv(res, filename, columns, rows);
   if (format === 'xlsx') return await exportExcel(res, filename, columns, rows);
-  if (format === 'pdf') return exportPdf(res, filename, title, columns, rows);
+  if (format === 'pdf') return exportPdf(res, filename, title, columns, rows, pdfOptions || {});
 
   return res.status(400).send('Format tidak dikenali');
 });

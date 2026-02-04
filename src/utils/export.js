@@ -36,45 +36,90 @@ async function exportExcel(res, filename, columns, rows) {
   res.end();
 }
 
-function exportPdf(res, filename, title, columns, rows) {
-  const doc = new PDFDocument({ margin: 30, size: 'A4' });
+function exportPdf(res, filename, title, columns, rows, options = {}) {
+  const margin = options.margin ?? 30;
+  const doc = new PDFDocument({
+    margin,
+    size: options.size || 'A4',
+    layout: options.layout || 'portrait',
+  });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
   doc.pipe(res);
 
-  doc.fontSize(16).text(title, { align: 'center' });
-  doc.moveDown(1);
+  const titleFontSize = options.titleFontSize ?? 16;
+  const headerFontSize = options.headerFontSize ?? 9;
+  const bodyFontSize = options.bodyFontSize ?? 8;
+  const rowGap = options.rowGap ?? 6;
+  const headerGap = options.headerGap ?? 6;
+  const colPadding = options.colPadding ?? 4;
 
-  const columnWidths = columns.map((col) => col.width || 100);
+  doc.fontSize(titleFontSize).text(title, { align: 'center' });
+  doc.moveDown(0.8);
+
+  const availableWidth = doc.page.width - margin * 2;
+  const rawWidths = columns.map((col) => col.pdfWidth || col.width || 100);
+  const sumWidths = rawWidths.reduce((a, b) => a + b, 0) || 1;
+  const scale = availableWidth / sumWidths;
+  const columnWidths = rawWidths.map((w) => w * scale);
   const startX = doc.x;
   let y = doc.y;
 
-  doc.fontSize(10).fillColor('#111');
+  const positions = [];
+  columnWidths.reduce((acc, w, idx) => {
+    positions[idx] = acc;
+    return acc + w;
+  }, 0);
 
-  columns.forEach((col, idx) => {
-    doc.text(col.header, startX + columnWidths.slice(0, idx).reduce((a, b) => a + b, 0), y, {
-      width: columnWidths[idx],
-      align: 'left',
-    });
-  });
-
-  y += 18;
-  doc.moveTo(startX, y).lineTo(startX + columnWidths.reduce((a, b) => a + b, 0), y).stroke();
-  y += 6;
-
-  rows.forEach((row) => {
+  function drawHeader() {
+    doc.fontSize(headerFontSize).fillColor('#111');
     columns.forEach((col, idx) => {
-      const value = row[col.key] === null || row[col.key] === undefined ? '' : String(row[col.key]);
-      doc.text(value, startX + columnWidths.slice(0, idx).reduce((a, b) => a + b, 0), y, {
-        width: columnWidths[idx],
+      doc.text(col.header, startX + positions[idx] + colPadding, y, {
+        width: columnWidths[idx] - colPadding * 2,
         align: 'left',
       });
     });
-    y += 16;
-    if (y > doc.page.height - 60) {
+    const headerHeight = Math.max(
+      ...columns.map((col, idx) =>
+        doc.heightOfString(col.header, {
+          width: columnWidths[idx] - colPadding * 2,
+        })
+      )
+    );
+    y += headerHeight + headerGap;
+    doc.moveTo(startX, y).lineTo(startX + availableWidth, y).stroke();
+    y += headerGap;
+  }
+
+  function ensurePage(rowHeight) {
+    if (y + rowHeight > doc.page.height - margin) {
       doc.addPage();
       y = doc.y;
+      drawHeader();
     }
+  }
+
+  drawHeader();
+
+  rows.forEach((row) => {
+    doc.fontSize(bodyFontSize).fillColor('#111');
+    const rowHeight = Math.max(
+      ...columns.map((col, idx) => {
+        const value = row[col.key] === null || row[col.key] === undefined ? '' : String(row[col.key]);
+        return doc.heightOfString(value, {
+          width: columnWidths[idx] - colPadding * 2,
+        });
+      })
+    );
+    ensurePage(rowHeight);
+    columns.forEach((col, idx) => {
+      const value = row[col.key] === null || row[col.key] === undefined ? '' : String(row[col.key]);
+      doc.text(value, startX + positions[idx] + colPadding, y, {
+        width: columnWidths[idx] - colPadding * 2,
+        align: 'left',
+      });
+    });
+    y += rowHeight + rowGap;
   });
 
   doc.end();
