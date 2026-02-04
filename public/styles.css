@@ -1,15 +1,15 @@
 :root {
-  --bg: #0f131a;
-  --panel: #151b24;
-  --panel-2: #1b2330;
-  --accent: #f59e0b;
-  --accent-2: #22d3ee;
-  --text: #f8fafc;
-  --muted: #94a3b8;
-  --border: #273449;
+  --bg: #f5f7fb;
+  --panel: #ffffff;
+  --panel-2: #f1f5f9;
+  --accent: #10b981;
+  --accent-2: #60a5fa;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
   --danger: #ef4444;
-  --success: #34d399;
-  --shadow: 0 24px 40px rgba(15, 23, 42, 0.35);
+  --success: #22c55e;
+  --shadow: 0 20px 45px rgba(15, 23, 42, 0.08);
 }
 
 * {
@@ -19,7 +19,7 @@
 body {
   margin: 0;
   font-family: 'Work Sans', sans-serif;
-  background: radial-gradient(circle at top, #1e293b 0%, #0f131a 55%);
+  background: radial-gradient(circle at top, #eef2ff 0%, #f8fafc 55%);
   color: var(--text);
 }
 
@@ -35,7 +35,7 @@ a {
 }
 
 .sidebar {
-  background: linear-gradient(180deg, #111827 0%, #0f172a 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   padding: 28px 20px;
   display: flex;
   flex-direction: column;
@@ -58,7 +58,7 @@ a {
   font-family: 'Space Grotesk', sans-serif;
   font-weight: 700;
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #0f172a;
+  color: #ffffff;
 }
 
 .brand-name {
@@ -90,7 +90,7 @@ a {
 .nav-link.active,
 .nav-link:hover {
   color: var(--text);
-  background: #1f2a3b;
+  background: #eef2ff;
 }
 
 .main {
@@ -188,13 +188,13 @@ a {
   width: 140px;
   height: 140px;
   border-radius: 50%;
-  background: rgba(34, 211, 238, 0.08);
+  background: rgba(96, 165, 250, 0.18);
   top: -40px;
   right: -40px;
 }
 
 .metric.accent::after {
-  background: rgba(245, 158, 11, 0.12);
+  background: rgba(16, 185, 129, 0.18);
 }
 
 .metric-label {
@@ -284,7 +284,7 @@ label {
 }
 
 input, select, textarea {
-  background: var(--panel-2);
+  background: #ffffff;
   border: 1px solid var(--border);
   padding: 10px 12px;
   border-radius: 12px;
@@ -295,7 +295,7 @@ input, select, textarea {
 input:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--accent-2);
-  box-shadow: 0 0 0 2px rgba(34, 211, 238, 0.2);
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.25);
 }
 
 .full {
@@ -314,11 +314,11 @@ input:focus, select:focus, textarea:focus {
 
 .btn.primary {
   background: linear-gradient(135deg, var(--accent), var(--accent-2));
-  color: #0f172a;
+  color: #ffffff;
 }
 
 .btn.ghost {
-  background: transparent;
+  background: #ffffff;
   border: 1px solid var(--border);
   color: var(--text);
 }
@@ -330,7 +330,7 @@ input:focus, select:focus, textarea:focus {
 
 .btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.2);
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.12);
 }
 
 .table-wrapper {
@@ -366,7 +366,7 @@ th {
 }
 
 .list li {
-  background: var(--panel-2);
+  background: #f8fafc;
   border-radius: 12px;
   padding: 12px;
   display: flex;
@@ -397,8 +397,8 @@ th {
 }
 
 .pill.warning {
-  background: rgba(245, 158, 11, 0.2);
-  color: var(--accent);
+  background: rgba(245, 158, 11, 0.18);
+  color: #b45309;
 }
 
 .muted {
@@ -414,7 +414,7 @@ th {
 }
 
 .flash.success {
-  background: rgba(52, 211, 153, 0.2);
+  background: rgba(34, 197, 94, 0.18);
   color: var(--success);
 }
 
@@ -431,7 +431,8 @@ th {
 
 .empty-state {
   padding: 12px;
-  background: rgba(148, 163, 184, 0.1);
+  background: #f8fafc;
+  border: 1px dashed var(--border);
   border-radius: 12px;
   color: var(--muted);
   text-align: center;
@@ -481,7 +482,8 @@ th {
 }
 
 .company-card {
-  background: var(--panel-2);
+  background: #f8fafc;
+  border: 1px solid var(--border);
   border-radius: 16px;
   padding: 16px;
   display: flex;
