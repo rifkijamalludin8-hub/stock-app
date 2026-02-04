@@ -64,6 +64,7 @@ app.use((req, res, next) => {
   res.locals.companiesCount = listCompanies().length;
   res.locals.currentYear = new Date().getFullYear();
   res.locals.requireSetupKey = Boolean(process.env.SETUP_KEY);
+  res.locals.divisionWarning = null;
   next();
 });
 
