@@ -39,6 +39,21 @@
         </label>
         <button class="btn primary" type="submit">Simpan</button>
       </form>
+
+      <div class="section-block">
+        <div class="section-title">Import Excel</div>
+        <p class="muted">
+          Kolom minimal: Item, Tanggal, Qty. Item bisa berupa label "Jenis - Nama - Exp" atau
+          isi kolom terpisah: Jenis Barang, Nama Item, Expired. Harga/Unit dan Catatan opsional.
+        </p>
+        <form method="post" action="/opening/import" class="form-grid" enctype="multipart/form-data">
+          <label class="full">
+            File Excel (.xlsx)
+            <input type="file" name="file" accept=".xlsx" required />
+          </label>
+          <button class="btn ghost" type="submit">Import Stock Awal</button>
+        </form>
+      </div>
     <% } else { %>
       <div class="empty-state">Hanya user yang bisa input stock awal.</div>
     <% } %>

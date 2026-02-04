@@ -1,10 +1,14 @@
 const express = require('express');
 const dayjs = require('dayjs');
+const fs = require('fs');
 const { requireCompany, requireAuth, requireRole, canSeePrice } = require('../utils/auth');
 const { setFlash } = require('../utils/flash');
 const { divisionAccess, buildDivisionFilter } = require('../utils/division');
+const { createExcelUpload } = require('../utils/excel-upload');
+const { readExcelRows, buildItemLookup, resolveItem, parseDate } = require('../utils/import-helpers');
 
 const router = express.Router();
+const upload = createExcelUpload('opening');
 
 router.get('/opening', requireCompany, requireAuth, divisionAccess, (req, res) => {
   const db = req.db;
@@ -82,6 +86,119 @@ router.post('/opening', requireCompany, requireAuth, requireRole('user'), divisi
   }
 
   res.redirect('/opening');
+});
+
+router.post('/opening/import', requireCompany, requireAuth, requireRole('user'), divisionAccess, (req, res) => {
+  upload.single('file')(req, res, async (err) => {
+    if (err) {
+      setFlash(req, 'error', err.message || 'Upload gagal.');
+      return res.redirect('/opening');
+    }
+    if (!req.file) {
+      setFlash(req, 'error', 'File Excel wajib diunggah.');
+      return res.redirect('/opening');
+    }
+
+    const db = req.db;
+    const filter = buildDivisionFilter(req.divisionIds, 'd.id');
+    try {
+      const { rows, headers } = await readExcelRows(req.file.path);
+      if (rows.length === 0) {
+        setFlash(req, 'error', 'File Excel kosong atau format tidak dikenali.');
+        return res.redirect('/opening');
+      }
+      const hasItemHeader = headers.includes('item_id') || headers.includes('item_label') || headers.includes('item_name');
+      if (!hasItemHeader) {
+        setFlash(req, 'error', 'Kolom item tidak ditemukan. Gunakan Item atau Nama Item/Jenis Barang.');
+        return res.redirect('/opening');
+      }
+      if (!headers.includes('qty')) {
+        setFlash(req, 'error', 'Kolom Qty wajib ada.');
+        return res.redirect('/opening');
+      }
+      if (!headers.includes('date')) {
+        setFlash(req, 'error', 'Kolom Tanggal wajib ada.');
+        return res.redirect('/opening');
+      }
+
+      const lookup = buildItemLookup(db, req.divisionIds, filter.clause, filter.params);
+      const insert = db.prepare(
+        `INSERT INTO opening_balances (item_id, qty, price_per_unit, note, opening_date, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`
+      );
+      const now = new Date().toISOString();
+      const payloads = [];
+      const errors = [];
+
+      rows.forEach(({ rowNumber, data }) => {
+        const { item, error } = resolveItem(data, lookup);
+        if (error) {
+          errors.push(`Baris ${rowNumber}: ${error}`);
+          return;
+        }
+
+        const qty = Number(data.qty);
+        if (!Number.isFinite(qty)) {
+          errors.push(`Baris ${rowNumber}: Qty tidak valid`);
+          return;
+        }
+
+        const openingDate = parseDate(data.date);
+        if (!openingDate) {
+          errors.push(`Baris ${rowNumber}: Tanggal tidak valid`);
+          return;
+        }
+
+        const price = data.price_per_unit !== undefined && data.price_per_unit !== null && data.price_per_unit !== ''
+          ? Number(data.price_per_unit)
+          : null;
+        if (price !== null && !Number.isFinite(price)) {
+          errors.push(`Baris ${rowNumber}: Harga tidak valid`);
+          return;
+        }
+
+        payloads.push({
+          item_id: item.id,
+          qty,
+          price_per_unit: price,
+          note: data.note ? String(data.note) : null,
+          opening_date: openingDate,
+        });
+      });
+
+      if (payloads.length) {
+        const insertMany = db.transaction((rowsToInsert) => {
+          rowsToInsert.forEach((row) => {
+            insert.run(
+              row.item_id,
+              row.qty,
+              row.price_per_unit,
+              row.note,
+              row.opening_date,
+              req.session.user.id,
+              now
+            );
+          });
+        });
+        insertMany(payloads);
+      }
+
+      const message = `Import selesai. Berhasil: ${payloads.length}, Gagal: ${errors.length}.`;
+      if (payloads.length > 0) {
+        setFlash(req, 'success', errors.length ? `${message} Contoh error: ${errors.slice(0, 3).join(' | ')}` : message);
+      } else {
+        setFlash(req, 'error', errors.length ? errors.slice(0, 3).join(' | ') : 'Import gagal.');
+      }
+    } catch (importErr) {
+      setFlash(req, 'error', 'Gagal membaca file Excel.');
+    } finally {
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+    }
+
+    return res.redirect('/opening');
+  });
 });
 
 module.exports = router;

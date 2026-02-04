@@ -36,6 +36,20 @@
       </label>
       <button class="btn primary" type="submit">Simpan</button>
     </form>
+    <div class="section-block">
+      <div class="section-title">Import Excel</div>
+      <p class="muted">
+        Kolom minimal: Item, Qty Delta (atau Qty). Tanggal opsional (jika kosong memakai tanggal hari ini).
+        Item bisa berupa label "Jenis - Nama - Exp" atau isi kolom terpisah: Jenis Barang, Nama Item, Expired.
+      </p>
+      <form method="post" action="/adjustments/import" class="form-grid" enctype="multipart/form-data">
+        <label class="full">
+          File Excel (.xlsx)
+          <input type="file" name="file" accept=".xlsx" required />
+        </label>
+        <button class="btn ghost" type="submit">Import Adjustment</button>
+      </form>
+    </div>
     <div class="export-row">
       <a class="btn ghost" href="/export/adjustments?format=xlsx">Export Excel</a>
       <a class="btn ghost" href="/export/adjustments?format=pdf">Export PDF</a>
