@@ -6,7 +6,7 @@ function formatPrice(value) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(numberValue);
-  return `Rp ${formatted}`;
+  return formatted;
 }
 
 function parsePrice(raw) {

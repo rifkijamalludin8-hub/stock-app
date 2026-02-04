@@ -87,7 +87,7 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
         key: 'price_per_unit',
         width: 14,
         format: formatPrice,
-        numFmt: '"Rp" #,##0.00',
+        numFmt: '#,##0.00',
       },
       { header: 'Catatan', key: 'note', width: 30 },
     ];
@@ -183,7 +183,7 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
         width: 14,
         pdfWidth: 60,
         format: formatPrice,
-        numFmt: '"Rp" #,##0.00',
+        numFmt: '#,##0.00',
       },
       {
         header: 'Nilai Akhir',
@@ -191,7 +191,7 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
         width: 14,
         pdfWidth: 70,
         format: formatPrice,
-        numFmt: '"Rp" #,##0.00',
+        numFmt: '#,##0.00',
       },
     ];
     rows = reportRows;
