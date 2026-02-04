@@ -3,7 +3,7 @@ function formatPrice(value) {
   const numberValue = Number(value);
   if (!Number.isFinite(numberValue)) return '-';
   const formatted = new Intl.NumberFormat('id-ID', {
-    minimumFractionDigits: 0,
+    minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(numberValue);
   return `Rp ${formatted}`;

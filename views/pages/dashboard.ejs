@@ -99,4 +99,33 @@
   </div>
 </div>
 
+<div class="card">
+  <div class="card-header">
+    <div>
+      <h3>Cetak Transaksi</h3>
+      <p>Pilih range tanggal untuk export transaksi.</p>
+    </div>
+  </div>
+  <form method="get" action="/export/transactions" class="form-inline">
+    <input type="hidden" name="format" value="pdf" />
+    <label>
+      Tanggal Mulai
+      <input name="start" type="date" required />
+    </label>
+    <label>
+      Tanggal Akhir
+      <input name="end" type="date" required />
+    </label>
+    <label>
+      Tipe
+      <select name="type">
+        <option value="">Semua</option>
+        <option value="IN">Masuk</option>
+        <option value="OUT">Keluar</option>
+      </select>
+    </label>
+    <button class="btn primary" type="submit">Print PDF</button>
+  </form>
+</div>
+
 <%- include('../partials/foot') %>

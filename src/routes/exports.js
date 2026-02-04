@@ -72,6 +72,11 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
 
   if (resource === 'transactions') {
     title = 'Daftar Transaksi';
+    const start = req.query.start;
+    const end = req.query.end;
+    const typeFilter = req.query.type === 'IN' || req.query.type === 'OUT' ? req.query.type : null;
+    const dateClause = start && end ? 'AND t.txn_date BETWEEN ? AND ?' : '';
+    const typeClause = typeFilter ? 'AND t.type = ?' : '';
     columns = [
       { header: 'Tanggal', key: 'txn_date', width: 14 },
       { header: 'Tipe', key: 'type', width: 8 },
@@ -99,9 +104,15 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
          JOIN item_groups g ON g.id = i.group_id
          JOIN divisions d ON d.id = g.division_id
          WHERE 1=1 ${filter.clause}
+           ${dateClause}
+           ${typeClause}
          ORDER BY t.txn_date DESC, t.id DESC`
       )
-      .all(...filter.params);
+      .all(
+        ...filter.params,
+        ...(start && end ? [start, end] : []),
+        ...(typeFilter ? [typeFilter] : [])
+      );
     if (!showPrice) {
       columns = columns.filter((col) => col.key !== 'price_per_unit');
       rows = rows.map(({ price_per_unit, ...rest }) => rest);
