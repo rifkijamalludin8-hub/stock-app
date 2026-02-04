@@ -1,3 +1,5 @@
+const dayjs = require('dayjs');
+
 function formatPrice(value) {
   if (value === null || value === undefined || value === '') return '-';
   const numberValue = Number(value);
@@ -7,6 +9,13 @@ function formatPrice(value) {
     maximumFractionDigits: 2,
   }).format(numberValue);
   return formatted;
+}
+
+function formatDateTime(value) {
+  if (!value) return '-';
+  const parsed = dayjs(value);
+  if (!parsed.isValid()) return String(value);
+  return parsed.format('YYYY-MM-DD HH:mm');
 }
 
 function parsePrice(raw) {
@@ -48,4 +57,4 @@ function parsePrice(raw) {
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
-module.exports = { formatPrice, parsePrice };
+module.exports = { formatPrice, formatDateTime, parsePrice };

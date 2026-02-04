@@ -3,7 +3,7 @@ const dayjs = require('dayjs');
 const { requireCompany, requireAuth, canSeePrice } = require('../utils/auth');
 const { divisionAccess, buildDivisionFilter } = require('../utils/division');
 const { exportCsv, exportExcel, exportPdf } = require('../utils/export');
-const { formatPrice } = require('../utils/format');
+const { formatPrice, formatDateTime } = require('../utils/format');
 const { getReportRows } = require('../utils/report');
 const { getCurrentStockRows } = require('../utils/stock');
 
@@ -90,6 +90,8 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
         numFmt: '#,##0.00',
       },
       { header: 'Catatan', key: 'note', width: 30 },
+      { header: 'Dibuat Oleh', key: 'created_by_name', width: 20 },
+      { header: 'Dibuat', key: 'created_at', width: 20, format: formatDateTime },
     ];
     rows = db
       .prepare(
@@ -98,11 +100,14 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
                 t.qty,
                 t.price_per_unit,
                 t.note,
+                t.created_at,
+                u.name AS created_by_name,
                 (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label
          FROM transactions t
          JOIN items i ON i.id = t.item_id
          JOIN item_groups g ON g.id = i.group_id
          JOIN divisions d ON d.id = g.division_id
+         LEFT JOIN users u ON u.id = t.created_by
          WHERE 1=1 ${filter.clause}
            ${dateClause}
            ${typeClause}
@@ -129,17 +134,22 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
       { header: 'Item', key: 'item_label', width: 36 },
       { header: 'Qty Delta', key: 'qty_delta', width: 12 },
       { header: 'Catatan', key: 'note', width: 30 },
+      { header: 'Dibuat Oleh', key: 'created_by_name', width: 20 },
+      { header: 'Dibuat', key: 'created_at', width: 20, format: formatDateTime },
     ];
     rows = db
       .prepare(
         `SELECT a.adj_date,
                 a.qty_delta,
                 a.note,
+                a.created_at,
+                u.name AS created_by_name,
                 (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label
          FROM adjustments a
          JOIN items i ON i.id = a.item_id
          JOIN item_groups g ON g.id = i.group_id
          JOIN divisions d ON d.id = g.division_id
+         LEFT JOIN users u ON u.id = a.created_by
          WHERE 1=1 ${filter.clause}
          ORDER BY a.adj_date DESC, a.id DESC`
       )

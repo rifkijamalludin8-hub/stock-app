@@ -70,6 +70,8 @@
             <% if (showPrice && type === 'IN') { %><th>Harga/Unit</th><% } %>
             <th>Bukti</th>
             <th>Catatan</th>
+            <th>Dibuat Oleh</th>
+            <th>Dibuat</th>
           </tr>
         </thead>
         <tbody>
@@ -87,6 +89,8 @@
                 <% } %>
               </td>
               <td><%= t.note || '-' %></td>
+              <td><%= t.created_by_name || '-' %></td>
+              <td><%= formatDateTime(t.created_at) %></td>
             </tr>
           <% }) %>
         </tbody>

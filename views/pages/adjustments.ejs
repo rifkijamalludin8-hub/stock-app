@@ -72,6 +72,8 @@
             <th>Qty</th>
             <th>Bukti</th>
             <th>Catatan</th>
+            <th>Dibuat Oleh</th>
+            <th>Dibuat</th>
           </tr>
         </thead>
         <tbody>
@@ -88,6 +90,8 @@
                 <% } %>
               </td>
               <td><%= a.note || '-' %></td>
+              <td><%= a.created_by_name || '-' %></td>
+              <td><%= formatDateTime(a.created_at) %></td>
             </tr>
           <% }) %>
         </tbody>

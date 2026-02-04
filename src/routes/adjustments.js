@@ -29,11 +29,13 @@ router.get('/adjustments', requireCompany, requireAuth, requireRole('user'), div
   const adjustments = db
     .prepare(
       `SELECT a.*,
-              (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label
+              (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label,
+              u.name AS created_by_name
        FROM adjustments a
        JOIN items i ON i.id = a.item_id
        JOIN item_groups g ON g.id = i.group_id
        JOIN divisions d ON d.id = g.division_id
+       LEFT JOIN users u ON u.id = a.created_by
        WHERE 1=1 ${filter.clause}
        ORDER BY a.adj_date DESC, a.id DESC
        LIMIT 50`

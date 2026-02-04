@@ -5,6 +5,7 @@ const { requireCompany, requireAuth, canSeePrice } = require('../utils/auth');
 const { divisionAccess, buildDivisionFilter } = require('../utils/division');
 const { setFlash } = require('../utils/flash');
 const { createProofUpload } = require('../utils/proof-upload');
+const { parsePrice } = require('../utils/format');
 
 const router = express.Router();
 const upload = createProofUpload('txn');
@@ -27,11 +28,13 @@ router.get('/transactions', requireCompany, requireAuth, divisionAccess, (req, r
   const transactions = db
     .prepare(
       `SELECT t.*,
-              (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label
+              (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label,
+              u.name AS created_by_name
        FROM transactions t
        JOIN items i ON i.id = t.item_id
        JOIN item_groups g ON g.id = i.group_id
        JOIN divisions d ON d.id = g.division_id
+       LEFT JOIN users u ON u.id = t.created_by
        WHERE t.type = ?
          ${filter.clause}
        ORDER BY t.txn_date DESC, t.id DESC
@@ -76,7 +79,16 @@ router.post('/transactions', requireCompany, requireAuth, divisionAccess, (req, 
       }
     }
 
-    const price = canSeePrice(req) ? Number(price_per_unit || 0) : null;
+    let price = null;
+    if (canSeePrice(req)) {
+      if (price_per_unit !== undefined && price_per_unit !== null && String(price_per_unit).trim() !== '') {
+        price = parsePrice(price_per_unit);
+        if (price === null) {
+          setFlash(req, 'error', 'Harga/Unit tidak valid.');
+          return res.redirect(`/transactions?type=${type}`);
+        }
+      }
+    }
     const proofPath = req.file ? path.join('uploads', 'proofs', req.file.filename) : null;
     try {
       db.prepare(

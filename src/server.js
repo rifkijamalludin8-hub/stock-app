@@ -4,7 +4,8 @@ const session = require('express-session');
 const connectRedis = require('connect-redis');
 const { createClient } = require('redis');
 const { flashMiddleware } = require('./utils/flash');
-const { formatPrice } = require('./utils/format');
+const { formatPrice, formatDateTime } = require('./utils/format');
+const { scheduleAutoBackup } = require('./utils/backup');
 const { listCompanies, dataDir } = require('./db/master');
 
 const authRoutes = require('./routes/auth');
@@ -70,6 +71,7 @@ app.use((req, res, next) => {
   res.locals.requireSetupKey = Boolean(process.env.SETUP_KEY);
   res.locals.divisionWarning = null;
   res.locals.formatPrice = formatPrice;
+  res.locals.formatDateTime = formatDateTime;
   next();
 });
 
@@ -93,4 +95,5 @@ app.get('/forbidden', (req, res) => {
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
+  scheduleAutoBackup();
 });
