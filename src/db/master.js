@@ -18,6 +18,15 @@ db.pragma('journal_mode = WAL');
 const schema = fs.readFileSync(path.join(__dirname, 'schema_master.sql'), 'utf8');
 db.exec(schema);
 
+function hasColumn(table, column) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  return columns.some((col) => col.name === column);
+}
+
+if (!hasColumn('companies', 'logo_path')) {
+  db.exec('ALTER TABLE companies ADD COLUMN logo_path TEXT');
+}
+
 function listCompanies() {
   return db.prepare('SELECT * FROM companies ORDER BY name ASC').all();
 }
@@ -33,10 +42,14 @@ function getCompanyBySlug(slug) {
 function createCompany({ name, slug, dbPath }) {
   const now = new Date().toISOString();
   const stmt = db.prepare(
-    'INSERT INTO companies (name, slug, db_path, created_at) VALUES (?, ?, ?, ?)'
+    'INSERT INTO companies (name, slug, db_path, logo_path, created_at) VALUES (?, ?, ?, ?, ?)'
   );
-  const info = stmt.run(name, slug, dbPath, now);
+  const info = stmt.run(name, slug, dbPath, null, now);
   return getCompanyById(info.lastInsertRowid);
+}
+
+function updateCompanyLogo(id, logoPath) {
+  return db.prepare('UPDATE companies SET logo_path = ? WHERE id = ?').run(logoPath, id);
 }
 
 function deleteCompanyById(id) {
@@ -51,4 +64,5 @@ module.exports = {
   getCompanyBySlug,
   createCompany,
   deleteCompanyById,
+  updateCompanyLogo,
 };

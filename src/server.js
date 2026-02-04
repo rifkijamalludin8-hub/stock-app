@@ -4,13 +4,14 @@ const session = require('express-session');
 const connectRedis = require('connect-redis');
 const { createClient } = require('redis');
 const { flashMiddleware } = require('./utils/flash');
-const { listCompanies } = require('./db/master');
+const { listCompanies, dataDir } = require('./db/master');
 
 const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
 const groupsRoutes = require('./routes/groups');
 const divisionsRoutes = require('./routes/divisions');
 const itemsRoutes = require('./routes/items');
+const settingsRoutes = require('./routes/settings');
 const transactionsRoutes = require('./routes/transactions');
 const adjustmentsRoutes = require('./routes/adjustments');
 const usersRoutes = require('./routes/users');
@@ -42,6 +43,7 @@ app.set('views', path.join(__dirname, '..', 'views'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
+app.use('/uploads', express.static(path.join(dataDir, 'uploads')));
 
 app.use(
   session({
@@ -74,6 +76,7 @@ app.use(dashboardRoutes);
 app.use(groupsRoutes);
 app.use(divisionsRoutes);
 app.use(itemsRoutes);
+app.use(settingsRoutes);
 app.use(transactionsRoutes);
 app.use(adjustmentsRoutes);
 app.use(usersRoutes);

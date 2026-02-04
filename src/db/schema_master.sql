@@ -3,5 +3,6 @@ CREATE TABLE IF NOT EXISTS companies (
   name TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
   db_path TEXT NOT NULL,
+  logo_path TEXT,
   created_at TEXT NOT NULL
 );

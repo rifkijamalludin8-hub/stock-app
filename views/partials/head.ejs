@@ -13,7 +13,13 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">STK</div>
+        <div class="brand-mark">
+          <% if (company && company.logo_path) { %>
+            <img src="/<%= company.logo_path %>" alt="Logo" />
+          <% } else { %>
+            STK
+          <% } %>
+        </div>
         <div>
           <div class="brand-name">Stock Barang</div>
           <div class="brand-sub">All device ready</div>
@@ -31,6 +37,7 @@
         <% if (user && user.role === 'user') { %>
           <a class="nav-link <%= page === 'adjustments' ? 'active' : '' %>" href="/adjustments">Adjustment</a>
           <a class="nav-link <%= page === 'users' ? 'active' : '' %>" href="/users">Daftar User</a>
+          <a class="nav-link <%= page === 'settings' ? 'active' : '' %>" href="/settings">Pengaturan</a>
         <% } %>
         <a class="nav-link <%= page === 'reports' ? 'active' : '' %>" href="/reports">Laporan</a>
         <a class="nav-link" href="/select-company">Ganti Perusahaan</a>
