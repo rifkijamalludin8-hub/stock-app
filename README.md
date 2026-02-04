@@ -31,9 +31,15 @@
 4. Tambahkan Environment Variables:
    - `NODE_ENV=production`
    - `SESSION_SECRET=...` (isi random panjang)
+   - `REDIS_URL=...` (URL Redis untuk session store)
    - `SETUP_KEY=...` (opsional, untuk izin pembuatan perusahaan)
    - `DATA_DIR=/var/data` (sesuaikan dengan mount disk)
 5. Tambahkan Persistent Disk dan mount ke `/var/data`.
+
+## Redis Session Store (Produksi)
+Untuk menghilangkan warning MemoryStore, gunakan Redis:
+- Pakai layanan Redis seperti Upstash/Render Redis.
+- Set `REDIS_URL` di environment variables.
 
 ## Struktur Data
 Data tersimpan di folder `data/`.

@@ -1,6 +1,8 @@
 const express = require('express');
 const path = require('path');
 const session = require('express-session');
+const connectRedis = require('connect-redis');
+const { createClient } = require('redis');
 const { flashMiddleware } = require('./utils/flash');
 const { listCompanies } = require('./db/master');
 
@@ -15,6 +17,19 @@ const reportsRoutes = require('./routes/reports');
 const exportsRoutes = require('./routes/exports');
 
 const app = express();
+
+let redisClient = null;
+let sessionStore;
+if (process.env.REDIS_URL) {
+  const RedisStore = connectRedis.RedisStore || connectRedis.default || connectRedis;
+  redisClient = createClient({ url: process.env.REDIS_URL });
+  redisClient.on('error', (err) => console.error('Redis error', err));
+  redisClient
+    .connect()
+    .then(() => console.log('Redis connected'))
+    .catch((err) => console.error('Redis connect error', err));
+  sessionStore = new RedisStore({ client: redisClient });
+}
 
 if (process.env.NODE_ENV === 'production') {
   app.set('trust proxy', 1);
@@ -32,6 +47,7 @@ app.use(
     secret: process.env.SESSION_SECRET || 'stock-secret',
     resave: false,
     saveUninitialized: false,
+    store: sessionStore,
     cookie: {
       httpOnly: true,
       sameSite: 'lax',
