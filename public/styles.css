@@ -471,10 +471,14 @@ th {
     left: 0;
     top: 0;
     height: 100vh;
-    width: 260px;
+    width: min(82vw, 280px);
     transform: translateX(-100%);
     transition: transform 0.3s ease;
     z-index: 9;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    padding-top: calc(24px + env(safe-area-inset-top));
   }
 
   body.sidebar-open .sidebar {
@@ -665,37 +669,7 @@ th {
   color: var(--muted);
 }
 
-@media (max-width: 900px) {
-  .app {
-    grid-template-columns: 1fr;
-  }
-  .sidebar {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    flex-direction: row;
-    overflow-x: auto;
-    align-items: center;
-  }
-  .nav {
-    flex-direction: row;
-    flex-wrap: nowrap;
-  }
-  .main {
-    padding: 20px;
-  }
-}
-
 @media (max-width: 600px) {
-  .topbar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-  }
-  .user-box {
-    width: 100%;
-    justify-content: space-between;
-  }
   .form-inline {
     flex-direction: column;
     align-items: stretch;
