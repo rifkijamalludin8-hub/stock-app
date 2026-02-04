@@ -21,6 +21,9 @@
       </div>
       <nav class="nav">
         <a class="nav-link <%= page === 'dashboard' ? 'active' : '' %>" href="/">Dashboard</a>
+        <% if (user && user.role === 'user') { %>
+          <a class="nav-link <%= page === 'divisions' ? 'active' : '' %>" href="/divisions">Divisi</a>
+        <% } %>
         <a class="nav-link <%= page === 'groups' ? 'active' : '' %>" href="/groups">Jenis Barang</a>
         <a class="nav-link <%= page === 'items' ? 'active' : '' %>" href="/items">Daftar Item</a>
         <a class="nav-link <%= page === 'in' ? 'active' : '' %>" href="/transactions?type=IN">Transaksi Masuk</a>
@@ -56,4 +59,7 @@
       <section class="content">
         <% if (flash) { %>
           <div class="flash <%= flash.type %>"><%= flash.message %></div>
+        <% } %>
+        <% if (divisionWarning) { %>
+          <div class="flash error"><%= divisionWarning %></div>
         <% } %>

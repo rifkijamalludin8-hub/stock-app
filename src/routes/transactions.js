@@ -1,25 +1,39 @@
 const express = require('express');
 const dayjs = require('dayjs');
 const { requireCompany, requireAuth, canSeePrice } = require('../utils/auth');
+const { divisionAccess, buildDivisionFilter } = require('../utils/division');
 const { setFlash } = require('../utils/flash');
 
 const router = express.Router();
 
-router.get('/transactions', requireCompany, requireAuth, (req, res) => {
+router.get('/transactions', requireCompany, requireAuth, divisionAccess, (req, res) => {
   const db = req.db;
   const type = req.query.type === 'OUT' ? 'OUT' : 'IN';
+  const filter = buildDivisionFilter(req.divisionIds, 'd.id');
 
-  const items = db.prepare('SELECT id, name FROM items ORDER BY name ASC').all();
+  const items = db
+    .prepare(
+      `SELECT i.id, i.name
+       FROM items i
+       JOIN item_groups g ON g.id = i.group_id
+       JOIN divisions d ON d.id = g.division_id
+       WHERE 1=1 ${filter.clause}
+       ORDER BY i.name ASC`
+    )
+    .all(...filter.params);
   const transactions = db
     .prepare(
       `SELECT t.*, i.name AS item_name
        FROM transactions t
        JOIN items i ON i.id = t.item_id
+       JOIN item_groups g ON g.id = i.group_id
+       JOIN divisions d ON d.id = g.division_id
        WHERE t.type = ?
+         ${filter.clause}
        ORDER BY t.txn_date DESC, t.id DESC
        LIMIT 50`
     )
-    .all(type);
+    .all(type, ...filter.params);
 
   res.render('pages/transactions', {
     type,
@@ -30,12 +44,26 @@ router.get('/transactions', requireCompany, requireAuth, (req, res) => {
   });
 });
 
-router.post('/transactions', requireCompany, requireAuth, (req, res) => {
+router.post('/transactions', requireCompany, requireAuth, divisionAccess, (req, res) => {
   const db = req.db;
   const { type, item_id, qty, price_per_unit, note, txn_date } = req.body;
   if (!type || !item_id || !qty) {
     setFlash(req, 'error', 'Jenis, item, dan qty wajib diisi.');
     return res.redirect('/transactions');
+  }
+  if (req.divisionIds) {
+    const item = db
+      .prepare(
+        `SELECT g.division_id
+         FROM items i
+         JOIN item_groups g ON g.id = i.group_id
+         WHERE i.id = ?`
+      )
+      .get(item_id);
+    if (!item || !req.divisionIds.includes(item.division_id)) {
+      setFlash(req, 'error', 'Tidak punya akses ke divisi tersebut.');
+      return res.redirect('/transactions');
+    }
   }
 
   const price = canSeePrice(req) ? Number(price_per_unit || 0) : null;

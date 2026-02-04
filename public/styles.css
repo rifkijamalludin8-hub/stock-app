@@ -429,6 +429,56 @@ th {
   margin-top: 12px;
 }
 
+.section-block {
+  padding: 12px 0;
+  border-top: 1px dashed var(--border);
+}
+
+.section-block:first-of-type {
+  border-top: none;
+}
+
+.section-title {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 16px;
+  margin: 6px 0 10px;
+}
+
+.section-sub {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--muted);
+  margin: 12px 0 6px;
+}
+
+.inline-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  border: 1px solid var(--border);
+  font-size: 12px;
+}
+
+.chip input {
+  accent-color: var(--accent);
+}
+
 .empty-state {
   padding: 12px;
   background: #f8fafc;

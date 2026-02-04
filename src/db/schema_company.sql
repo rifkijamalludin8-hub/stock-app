@@ -9,10 +9,18 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS item_groups (
+CREATE TABLE IF NOT EXISTS divisions (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE,
   description TEXT
+);
+
+CREATE TABLE IF NOT EXISTS item_groups (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  division_id INTEGER NOT NULL,
+  name TEXT NOT NULL UNIQUE,
+  description TEXT,
+  FOREIGN KEY (division_id) REFERENCES divisions(id) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS items (
@@ -53,8 +61,18 @@ CREATE TABLE IF NOT EXISTS adjustments (
   FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
 );
 
+CREATE TABLE IF NOT EXISTS user_divisions (
+  user_id INTEGER NOT NULL,
+  division_id INTEGER NOT NULL,
+  PRIMARY KEY (user_id, division_id),
+  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (division_id) REFERENCES divisions(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_items_group_id ON items(group_id);
+CREATE INDEX IF NOT EXISTS idx_groups_division_id ON item_groups(division_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_item_id ON transactions(item_id);
 CREATE INDEX IF NOT EXISTS idx_transactions_date ON transactions(txn_date);
 CREATE INDEX IF NOT EXISTS idx_adjustments_item_id ON adjustments(item_id);
 CREATE INDEX IF NOT EXISTS idx_adjustments_date ON adjustments(adj_date);
+CREATE INDEX IF NOT EXISTS idx_user_divisions_user_id ON user_divisions(user_id);

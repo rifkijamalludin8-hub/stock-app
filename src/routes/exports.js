@@ -1,17 +1,19 @@
 const express = require('express');
 const dayjs = require('dayjs');
 const { requireCompany, requireAuth, canSeePrice } = require('../utils/auth');
+const { divisionAccess, buildDivisionFilter } = require('../utils/division');
 const { exportCsv, exportExcel, exportPdf } = require('../utils/export');
 const { getReportRows } = require('../utils/report');
 const { getCurrentStockRows } = require('../utils/stock');
 
 const router = express.Router();
 
-router.get('/export/:resource', requireCompany, requireAuth, async (req, res) => {
+router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, async (req, res) => {
   const { resource } = req.params;
   const format = (req.query.format || 'xlsx').toLowerCase();
   const db = req.db;
   const showPrice = canSeePrice(req);
+  const filter = buildDivisionFilter(req.divisionIds, 'd.id');
 
   let columns = [];
   let rows = [];
@@ -21,17 +23,27 @@ router.get('/export/:resource', requireCompany, requireAuth, async (req, res) =>
   if (resource === 'groups') {
     title = 'Daftar Kelompok Barang';
     columns = [
+      { header: 'Divisi', key: 'division_name', width: 22 },
       { header: 'Nama Kelompok', key: 'name', width: 30 },
       { header: 'Deskripsi', key: 'description', width: 40 },
     ];
-    rows = db.prepare('SELECT name, description FROM item_groups ORDER BY name ASC').all();
+    rows = db
+      .prepare(
+        `SELECT g.name, g.description, d.name AS division_name
+         FROM item_groups g
+         JOIN divisions d ON d.id = g.division_id
+         WHERE 1=1 ${filter.clause}
+         ORDER BY d.name ASC, g.name ASC`
+      )
+      .all(...filter.params);
   }
 
   if (resource === 'items') {
     title = 'Daftar Item';
-    const stockRows = getCurrentStockRows(db);
+    const stockRows = getCurrentStockRows(db, req.divisionIds);
     const stockMap = new Map(stockRows.map((row) => [row.id, row.stock]));
     columns = [
+      { header: 'Divisi', key: 'division_name', width: 22 },
       { header: 'Kelompok', key: 'group_name', width: 24 },
       { header: 'Nama Item', key: 'name', width: 30 },
       { header: 'SKU', key: 'sku', width: 16 },
@@ -42,12 +54,14 @@ router.get('/export/:resource', requireCompany, requireAuth, async (req, res) =>
     ];
     rows = db
       .prepare(
-        `SELECT i.*, g.name AS group_name
+        `SELECT i.*, g.name AS group_name, d.name AS division_name
          FROM items i
          JOIN item_groups g ON g.id = i.group_id
-         ORDER BY g.name ASC, i.name ASC`
+         JOIN divisions d ON d.id = g.division_id
+         WHERE 1=1 ${filter.clause}
+         ORDER BY d.name ASC, g.name ASC, i.name ASC`
       )
-      .all()
+      .all(...filter.params)
       .map((row) => ({
         ...row,
         stock: stockMap.get(row.id) || 0,
@@ -69,9 +83,12 @@ router.get('/export/:resource', requireCompany, requireAuth, async (req, res) =>
         `SELECT t.txn_date, t.type, t.qty, t.price_per_unit, t.note, i.name AS item_name
          FROM transactions t
          JOIN items i ON i.id = t.item_id
+         JOIN item_groups g ON g.id = i.group_id
+         JOIN divisions d ON d.id = g.division_id
+         WHERE 1=1 ${filter.clause}
          ORDER BY t.txn_date DESC, t.id DESC`
       )
-      .all();
+      .all(...filter.params);
     if (!showPrice) {
       columns = columns.filter((col) => col.key !== 'price_per_unit');
       rows = rows.map(({ price_per_unit, ...rest }) => rest);
@@ -119,8 +136,9 @@ router.get('/export/:resource', requireCompany, requireAuth, async (req, res) =>
     if (!start || !end) return res.status(400).send('Start/end wajib diisi');
     title = 'Laporan Stock';
     filename = `laporan-stock-${start}-sd-${end}`;
-    const reportRows = getReportRows(db, start, end);
+    const reportRows = getReportRows(db, start, end, req.divisionIds);
     columns = [
+      { header: 'Divisi', key: 'division_name', width: 22 },
       { header: 'Kelompok', key: 'group_name', width: 22 },
       { header: 'Item', key: 'item_name', width: 26 },
       { header: 'Expired', key: 'expiry_date', width: 14 },

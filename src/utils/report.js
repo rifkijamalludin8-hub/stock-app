@@ -1,4 +1,7 @@
-function getReportRows(db, startDate, endDate) {
+const { buildDivisionFilter } = require('./division');
+
+function getReportRows(db, startDate, endDate, divisionIds = null) {
+  const filter = buildDivisionFilter(divisionIds, 'd.id');
   const sql = `
     WITH
       in_before AS (
@@ -38,6 +41,7 @@ function getReportRows(db, startDate, endDate) {
         GROUP BY item_id
       )
     SELECT
+      d.name AS division_name,
       g.name AS group_name,
       i.id AS item_id,
       i.name AS item_name,
@@ -61,13 +65,15 @@ function getReportRows(db, startDate, endDate) {
       ) AS price_per_unit
     FROM items i
     JOIN item_groups g ON g.id = i.group_id
+    JOIN divisions d ON d.id = g.division_id
     LEFT JOIN in_before ON in_before.item_id = i.id
     LEFT JOIN out_before ON out_before.item_id = i.id
     LEFT JOIN adj_before ON adj_before.item_id = i.id
     LEFT JOIN in_range ON in_range.item_id = i.id
     LEFT JOIN out_range ON out_range.item_id = i.id
     LEFT JOIN adj_range ON adj_range.item_id = i.id
-    ORDER BY g.name ASC, i.name ASC, i.expiry_date ASC
+    WHERE 1=1 ${filter.clause}
+    ORDER BY d.name ASC, g.name ASC, i.name ASC, i.expiry_date ASC
   `;
 
   const params = [
@@ -83,12 +89,13 @@ function getReportRows(db, startDate, endDate) {
     endDate,
   ];
 
-  const rows = db.prepare(sql).all(...params);
+  const rows = db.prepare(sql).all(...params, ...filter.params);
 
   return rows.map((row) => {
     const opening = row.in_before - row.out_before + row.adj_before;
     const closing = opening + row.in_qty - row.out_qty + row.adj_qty;
     return {
+      division_name: row.division_name,
       group_name: row.group_name,
       item_id: row.item_id,
       item_name: row.item_name,
@@ -109,16 +116,24 @@ function getReportRows(db, startDate, endDate) {
 }
 
 function groupReportRows(rows) {
-  const grouped = [];
-  const map = new Map();
+  const divisions = [];
+  const divMap = new Map();
   rows.forEach((row) => {
-    if (!map.has(row.group_name)) {
-      map.set(row.group_name, { name: row.group_name, items: [] });
-      grouped.push(map.get(row.group_name));
+    if (!divMap.has(row.division_name)) {
+      divMap.set(row.division_name, { name: row.division_name, groups: [] });
+      divisions.push(divMap.get(row.division_name));
     }
-    map.get(row.group_name).items.push(row);
+    const division = divMap.get(row.division_name);
+    if (!division.groupMap) division.groupMap = new Map();
+    if (!division.groupMap.has(row.group_name)) {
+      const group = { name: row.group_name, items: [] };
+      division.groupMap.set(row.group_name, group);
+      division.groups.push(group);
+    }
+    division.groupMap.get(row.group_name).items.push(row);
   });
-  return grouped;
+  divisions.forEach((div) => delete div.groupMap);
+  return divisions;
 }
 
 module.exports = { getReportRows, groupReportRows };

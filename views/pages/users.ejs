@@ -50,6 +50,7 @@
             <th>Nama</th>
             <th>Email</th>
             <th>Role</th>
+            <th>Divisi (Admin)</th>
             <th>Aksi</th>
           </tr>
         </thead>
@@ -59,6 +60,28 @@
               <td><%= u.name %></td>
               <td><%= u.email %></td>
               <td><%= u.role %></td>
+              <td>
+                <% if (u.role === 'admin') { %>
+                  <form action="/users/<%= u.id %>/divisions" method="post" class="inline-form">
+                    <div class="chip-group">
+                      <% divisions.forEach((division) => { %>
+                        <label class="chip">
+                          <input
+                            type="checkbox"
+                            name="division_ids"
+                            value="<%= division.id %>"
+                            <%= divisionMap.has(u.id) && divisionMap.get(u.id).has(division.id) ? 'checked' : '' %>
+                          />
+                          <span><%= division.name %></span>
+                        </label>
+                      <% }) %>
+                    </div>
+                    <button class="btn ghost" type="submit">Simpan</button>
+                  </form>
+                <% } else { %>
+                  <span class="muted">Semua divisi</span>
+                <% } %>
+              </td>
               <td>
                 <form action="/users/<%= u.id %>/delete" method="post" onsubmit="return confirm('Hapus user ini?')">
                   <button class="btn danger" type="submit">Hapus</button>

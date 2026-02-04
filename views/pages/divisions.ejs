@@ -1,0 +1,53 @@
+<%- include('../partials/head', { pageTitle: 'Divisi', page: 'divisions' }) %>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Tambah Divisi</h3>
+        <p>Divisi sebagai header untuk pengelompokan jenis barang.</p>
+      </div>
+    </div>
+    <form method="post" action="/divisions" class="form-stack">
+      <label>
+        Nama Divisi
+        <input name="name" required />
+      </label>
+      <label>
+        Deskripsi
+        <textarea name="description" rows="3"></textarea>
+      </label>
+      <button class="btn primary" type="submit">Simpan</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Daftar Divisi</h3>
+        <p>Total: <%= divisions.length %> divisi</p>
+      </div>
+    </div>
+    <% if (divisions.length === 0) { %>
+      <div class="empty-state">Belum ada data.</div>
+    <% } else { %>
+      <ul class="list">
+        <% divisions.forEach((division) => { %>
+          <li>
+            <div>
+              <strong><%= division.name %></strong>
+              <div class="muted"><%= division.description || '-' %></div>
+            </div>
+            <div class="actions">
+              <form action="/divisions/<%= division.id %>/delete" method="post" onsubmit="return confirm('Hapus divisi ini?')">
+                <button class="btn danger" type="submit">Hapus</button>
+              </form>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </div>
+</div>
+
+<%- include('../partials/foot') %>

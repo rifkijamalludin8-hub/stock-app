@@ -14,11 +14,11 @@
         <input name="name" required />
       </label>
       <label>
-        Kelompok
+        Jenis Barang
         <select name="group_id" required>
-          <option value="">Pilih Kelompok</option>
+          <option value="">Pilih Jenis Barang</option>
           <% groups.forEach((group) => { %>
-            <option value="<%= group.id %>"><%= group.name %></option>
+            <option value="<%= group.id %>"><%= group.division_name %> • <%= group.name %></option>
           <% }) %>
         </select>
       </label>
@@ -49,43 +49,53 @@
   <div class="card">
     <div class="card-header">
       <div>
-        <h3>Daftar Item</h3>
-        <p>Total: <%= items.length %> item</p>
+        <h3>Divisi → Jenis Barang → Stock</h3>
+        <p>Susunan stok per divisi dan jenis barang.</p>
       </div>
     </div>
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Kelompok</th>
-            <th>Item</th>
-            <th>Stock</th>
-            <th>Expired</th>
-            <th>Min</th>
-            <th>Aksi</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% items.forEach((item) => { %>
-            <tr>
-              <td><%= item.group_name %></td>
-              <td>
-                <strong><%= item.name %></strong>
-                <div class="muted"><%= item.sku || '-' %></div>
-              </td>
-              <td><%= item.stock %> <%= item.unit || '' %></td>
-              <td><%= item.expiry_date || '-' %></td>
-              <td><%= item.min_stock %></td>
-              <td>
-                <form action="/items/<%= item.id %>/delete" method="post" onsubmit="return confirm('Hapus item ini?')">
-                  <button class="btn danger" type="submit">Hapus</button>
-                </form>
-              </td>
-            </tr>
+    <% if (divisions.length === 0) { %>
+      <div class="empty-state">Belum ada item.</div>
+    <% } else { %>
+      <% divisions.forEach((division) => { %>
+        <div class="section-block">
+          <div class="section-title"><%= division.name %></div>
+          <% division.groups.forEach((group) => { %>
+            <div class="section-sub"><%= group.name %></div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Stock</th>
+                    <th>Expired</th>
+                    <th>Min</th>
+                    <th>Aksi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% group.items.forEach((item) => { %>
+                    <tr>
+                      <td>
+                        <strong><%= item.name %></strong>
+                        <div class="muted"><%= item.sku || '-' %></div>
+                      </td>
+                      <td><%= item.stock %> <%= item.unit || '' %></td>
+                      <td><%= item.expiry_date || '-' %></td>
+                      <td><%= item.min_stock %></td>
+                      <td>
+                        <form action="/items/<%= item.id %>/delete" method="post" onsubmit="return confirm('Hapus item ini?')">
+                          <button class="btn danger" type="submit">Hapus</button>
+                        </form>
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
           <% }) %>
-        </tbody>
-      </table>
-    </div>
+        </div>
+      <% }) %>
+    <% } %>
   </div>
 </div>
 

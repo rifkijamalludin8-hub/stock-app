@@ -10,6 +10,15 @@
     </div>
     <form method="post" action="/groups" class="form-stack">
       <label>
+        Divisi
+        <select name="division_id" required>
+          <option value="">Pilih Divisi</option>
+          <% divisions.forEach((division) => { %>
+            <option value="<%= division.id %>"><%= division.name %></option>
+          <% }) %>
+        </select>
+      </label>
+      <label>
         Nama Kelompok
         <input name="name" required />
       </label>
@@ -40,6 +49,7 @@
           <li>
             <div>
               <strong><%= group.name %></strong>
+              <div class="muted"><%= group.division_name %></div>
               <div class="muted"><%= group.description || '-' %></div>
             </div>
             <div class="actions">
