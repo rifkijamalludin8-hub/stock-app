@@ -74,14 +74,19 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
     columns = [
       { header: 'Tanggal', key: 'txn_date', width: 14 },
       { header: 'Tipe', key: 'type', width: 8 },
-      { header: 'Item', key: 'item_name', width: 30 },
+      { header: 'Item', key: 'item_label', width: 36 },
       { header: 'Qty', key: 'qty', width: 12 },
       { header: 'Harga/Unit', key: 'price_per_unit', width: 14 },
       { header: 'Catatan', key: 'note', width: 30 },
     ];
     rows = db
       .prepare(
-        `SELECT t.txn_date, t.type, t.qty, t.price_per_unit, t.note, i.name AS item_name
+        `SELECT t.txn_date,
+                t.type,
+                t.qty,
+                t.price_per_unit,
+                t.note,
+                (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label
          FROM transactions t
          JOIN items i ON i.id = t.item_id
          JOIN item_groups g ON g.id = i.group_id
@@ -103,18 +108,24 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
     title = 'Daftar Adjustment';
     columns = [
       { header: 'Tanggal', key: 'adj_date', width: 14 },
-      { header: 'Item', key: 'item_name', width: 30 },
+      { header: 'Item', key: 'item_label', width: 36 },
       { header: 'Qty Delta', key: 'qty_delta', width: 12 },
       { header: 'Catatan', key: 'note', width: 30 },
     ];
     rows = db
       .prepare(
-        `SELECT a.adj_date, a.qty_delta, a.note, i.name AS item_name
+        `SELECT a.adj_date,
+                a.qty_delta,
+                a.note,
+                (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label
          FROM adjustments a
          JOIN items i ON i.id = a.item_id
+         JOIN item_groups g ON g.id = i.group_id
+         JOIN divisions d ON d.id = g.division_id
+         WHERE 1=1 ${filter.clause}
          ORDER BY a.adj_date DESC, a.id DESC`
       )
-      .all();
+      .all(...filter.params);
   }
 
   if (resource === 'users') {

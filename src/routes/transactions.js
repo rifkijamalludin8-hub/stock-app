@@ -1,10 +1,13 @@
 const express = require('express');
 const dayjs = require('dayjs');
+const path = require('path');
 const { requireCompany, requireAuth, canSeePrice } = require('../utils/auth');
 const { divisionAccess, buildDivisionFilter } = require('../utils/division');
 const { setFlash } = require('../utils/flash');
+const { createProofUpload } = require('../utils/proof-upload');
 
 const router = express.Router();
+const upload = createProofUpload('txn');
 
 router.get('/transactions', requireCompany, requireAuth, divisionAccess, (req, res) => {
   const db = req.db;
@@ -23,7 +26,8 @@ router.get('/transactions', requireCompany, requireAuth, divisionAccess, (req, r
     .all(...filter.params);
   const transactions = db
     .prepare(
-      `SELECT t.*, i.name AS item_name
+      `SELECT t.*,
+              (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label
        FROM transactions t
        JOIN items i ON i.id = t.item_id
        JOIN item_groups g ON g.id = i.group_id
@@ -45,48 +49,57 @@ router.get('/transactions', requireCompany, requireAuth, divisionAccess, (req, r
 });
 
 router.post('/transactions', requireCompany, requireAuth, divisionAccess, (req, res) => {
-  const db = req.db;
-  const { type, item_id, qty, price_per_unit, note, txn_date } = req.body;
-  if (!type || !item_id || !qty) {
-    setFlash(req, 'error', 'Jenis, item, dan qty wajib diisi.');
-    return res.redirect('/transactions');
-  }
-  if (req.divisionIds) {
-    const item = db
-      .prepare(
-        `SELECT g.division_id
-         FROM items i
-         JOIN item_groups g ON g.id = i.group_id
-         WHERE i.id = ?`
-      )
-      .get(item_id);
-    if (!item || !req.divisionIds.includes(item.division_id)) {
-      setFlash(req, 'error', 'Tidak punya akses ke divisi tersebut.');
+  upload.single('proof')(req, res, (err) => {
+    if (err) {
+      setFlash(req, 'error', err.message || 'Upload bukti gagal.');
+      return res.redirect(`/transactions?type=${req.body.type || 'IN'}`);
+    }
+
+    const db = req.db;
+    const { type, item_id, qty, price_per_unit, note, txn_date } = req.body;
+    if (!type || !item_id || !qty) {
+      setFlash(req, 'error', 'Jenis, item, dan qty wajib diisi.');
       return res.redirect('/transactions');
     }
-  }
+    if (req.divisionIds) {
+      const item = db
+        .prepare(
+          `SELECT g.division_id
+           FROM items i
+           JOIN item_groups g ON g.id = i.group_id
+           WHERE i.id = ?`
+        )
+        .get(item_id);
+      if (!item || !req.divisionIds.includes(item.division_id)) {
+        setFlash(req, 'error', 'Tidak punya akses ke divisi tersebut.');
+        return res.redirect('/transactions');
+      }
+    }
 
-  const price = canSeePrice(req) ? Number(price_per_unit || 0) : null;
-  try {
-    db.prepare(
-      `INSERT INTO transactions (item_id, type, qty, price_per_unit, note, txn_date, created_by, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      item_id,
-      type,
-      Number(qty),
-      price,
-      note || null,
-      txn_date || dayjs().format('YYYY-MM-DD'),
-      req.session.user.id,
-      new Date().toISOString()
-    );
-    setFlash(req, 'success', 'Transaksi berhasil ditambahkan.');
-  } catch (err) {
-    setFlash(req, 'error', 'Gagal menambahkan transaksi.');
-  }
+    const price = canSeePrice(req) ? Number(price_per_unit || 0) : null;
+    const proofPath = req.file ? path.join('uploads', 'proofs', req.file.filename) : null;
+    try {
+      db.prepare(
+        `INSERT INTO transactions (item_id, type, qty, price_per_unit, proof_path, note, txn_date, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        item_id,
+        type,
+        Number(qty),
+        price,
+        proofPath,
+        note || null,
+        txn_date || dayjs().format('YYYY-MM-DD'),
+        req.session.user.id,
+        new Date().toISOString()
+      );
+      setFlash(req, 'success', 'Transaksi berhasil ditambahkan.');
+    } catch (err) {
+      setFlash(req, 'error', 'Gagal menambahkan transaksi.');
+    }
 
-  res.redirect(`/transactions?type=${type}`);
+    return res.redirect(`/transactions?type=${type}`);
+  });
 });
 
 module.exports = router;

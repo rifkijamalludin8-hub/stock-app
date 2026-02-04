@@ -47,6 +47,14 @@ function ensureSchema(db) {
     created_at TEXT NOT NULL
   );`);
 
+  // Ensure proof_path exists on transactions/adjustments
+  if (hasTable(db, 'transactions') && !hasColumn(db, 'transactions', 'proof_path')) {
+    db.exec('ALTER TABLE transactions ADD COLUMN proof_path TEXT');
+  }
+  if (hasTable(db, 'adjustments') && !hasColumn(db, 'adjustments', 'proof_path')) {
+    db.exec('ALTER TABLE adjustments ADD COLUMN proof_path TEXT');
+  }
+
   // Seed default division if empty
   const divisionCount = db.prepare('SELECT COUNT(*) as count FROM divisions').get().count;
   if (divisionCount === 0) {

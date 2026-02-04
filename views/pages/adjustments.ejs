@@ -8,7 +8,7 @@
         <p>Perbaiki selisih stock. Hanya user.</p>
       </div>
     </div>
-    <form method="post" action="/adjustments" class="form-grid">
+    <form method="post" action="/adjustments" class="form-grid" enctype="multipart/form-data">
       <label>
         Tanggal
         <input name="adj_date" type="date" value="<%= today %>" />
@@ -29,6 +29,10 @@
       <label class="full">
         Catatan
         <textarea name="note" rows="2"></textarea>
+      </label>
+      <label class="full">
+        Bukti Adjustment (JPG/PNG/WEBP/PDF)
+        <input type="file" name="proof" accept="image/*,application/pdf" />
       </label>
       <button class="btn primary" type="submit">Simpan</button>
     </form>
@@ -52,6 +56,7 @@
             <th>Tanggal</th>
             <th>Item</th>
             <th>Qty</th>
+            <th>Bukti</th>
             <th>Catatan</th>
           </tr>
         </thead>
@@ -59,8 +64,15 @@
           <% adjustments.forEach((a) => { %>
             <tr>
               <td><%= a.adj_date %></td>
-              <td><%= a.item_name %></td>
+              <td><%= a.item_label %></td>
               <td><%= a.qty_delta %></td>
+              <td>
+                <% if (a.proof_path) { %>
+                  <a class="link" href="/<%= a.proof_path %>" target="_blank" rel="noopener">Lihat</a>
+                <% } else { %>
+                  -
+                <% } %>
+              </td>
               <td><%= a.note || '-' %></td>
             </tr>
           <% }) %>
