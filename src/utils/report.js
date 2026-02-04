@@ -4,29 +4,43 @@ function getReportRows(db, startDate, endDate, divisionIds = null) {
   const filter = buildDivisionFilter(divisionIds, 'd.id');
   const sql = `
     WITH
+      opening_pick AS (
+        SELECT ob.item_id, ob.qty, ob.opening_date
+        FROM opening_balances ob
+        JOIN (
+          SELECT item_id, MAX(opening_date) AS max_date
+          FROM opening_balances
+          WHERE opening_date <= ?
+          GROUP BY item_id
+        ) latest
+          ON latest.item_id = ob.item_id
+         AND latest.max_date = ob.opening_date
+      ),
       in_before AS (
-        SELECT item_id, SUM(qty) qty
-        FROM transactions
-        WHERE type = 'IN' AND txn_date < ?
-        GROUP BY item_id
+        SELECT t.item_id, SUM(t.qty) qty
+        FROM transactions t
+        LEFT JOIN opening_pick op ON op.item_id = t.item_id
+        WHERE t.type = 'IN'
+          AND t.txn_date < ?
+          AND (op.opening_date IS NULL OR t.txn_date >= op.opening_date)
+        GROUP BY t.item_id
       ),
       out_before AS (
-        SELECT item_id, SUM(qty) qty
-        FROM transactions
-        WHERE type = 'OUT' AND txn_date < ?
-        GROUP BY item_id
+        SELECT t.item_id, SUM(t.qty) qty
+        FROM transactions t
+        LEFT JOIN opening_pick op ON op.item_id = t.item_id
+        WHERE t.type = 'OUT'
+          AND t.txn_date < ?
+          AND (op.opening_date IS NULL OR t.txn_date >= op.opening_date)
+        GROUP BY t.item_id
       ),
       adj_before AS (
-        SELECT item_id, SUM(qty_delta) qty
-        FROM adjustments
-        WHERE adj_date < ?
-        GROUP BY item_id
-      ),
-      opening_before AS (
-        SELECT item_id, SUM(qty) qty
-        FROM opening_balances
-        WHERE opening_date <= ?
-        GROUP BY item_id
+        SELECT a.item_id, SUM(a.qty_delta) qty
+        FROM adjustments a
+        LEFT JOIN opening_pick op ON op.item_id = a.item_id
+        WHERE a.adj_date < ?
+          AND (op.opening_date IS NULL OR a.adj_date >= op.opening_date)
+        GROUP BY a.item_id
       ),
       in_range AS (
         SELECT item_id, SUM(qty) qty
@@ -53,7 +67,7 @@ function getReportRows(db, startDate, endDate, divisionIds = null) {
       i.name AS item_name,
       i.expiry_date,
       i.unit,
-      COALESCE(opening_before.qty, 0) AS opening_qty,
+      COALESCE(opening_pick.qty, 0) AS opening_qty,
       COALESCE(in_before.qty, 0) AS in_before,
       COALESCE(out_before.qty, 0) AS out_before,
       COALESCE(adj_before.qty, 0) AS adj_before,
@@ -83,7 +97,7 @@ function getReportRows(db, startDate, endDate, divisionIds = null) {
     LEFT JOIN in_before ON in_before.item_id = i.id
     LEFT JOIN out_before ON out_before.item_id = i.id
     LEFT JOIN adj_before ON adj_before.item_id = i.id
-    LEFT JOIN opening_before ON opening_before.item_id = i.id
+    LEFT JOIN opening_pick ON opening_pick.item_id = i.id
     LEFT JOIN in_range ON in_range.item_id = i.id
     LEFT JOIN out_range ON out_range.item_id = i.id
     LEFT JOIN adj_range ON adj_range.item_id = i.id

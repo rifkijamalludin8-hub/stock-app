@@ -13,6 +13,7 @@ const upload = createExcelUpload('opening');
 router.get('/opening', requireCompany, requireAuth, divisionAccess, (req, res) => {
   const db = req.db;
   const filter = buildDivisionFilter(req.divisionIds, 'd.id');
+  const editId = req.query.edit ? Number(req.query.edit) : null;
   const items = db
     .prepare(
       `SELECT i.id, i.name, i.expiry_date, g.name AS group_name
@@ -23,6 +24,22 @@ router.get('/opening', requireCompany, requireAuth, divisionAccess, (req, res) =
        ORDER BY g.name ASC, i.name ASC`
     )
     .all(...filter.params);
+
+  let editOpening = null;
+  if (editId && req.session.user && req.session.user.role === 'user') {
+    editOpening = db
+      .prepare(
+        `SELECT ob.*, i.name AS item_name, i.expiry_date, g.name AS group_name
+         FROM opening_balances ob
+         JOIN items i ON i.id = ob.item_id
+         JOIN item_groups g ON g.id = i.group_id
+         JOIN divisions d ON d.id = g.division_id
+         WHERE ob.id = ?
+           ${filter.clause}
+         LIMIT 1`
+      )
+      .get(editId, ...filter.params);
+  }
 
   const openings = db
     .prepare(
@@ -42,6 +59,7 @@ router.get('/opening', requireCompany, requireAuth, divisionAccess, (req, res) =
     today: dayjs().format('YYYY-MM-DD'),
     showPrice: canSeePrice(req),
     canCreate: req.session.user && req.session.user.role === 'user',
+    editOpening,
   });
 });
 
@@ -87,6 +105,98 @@ router.post('/opening', requireCompany, requireAuth, requireRole('user'), divisi
 
   res.redirect('/opening');
 });
+
+router.post(
+  '/opening/:id/update',
+  requireCompany,
+  requireAuth,
+  requireRole('user'),
+  divisionAccess,
+  (req, res) => {
+    const db = req.db;
+    const id = Number(req.params.id);
+    const { item_id, qty, price_per_unit, note, opening_date } = req.body;
+    if (!id || !item_id || !qty || !opening_date) {
+      setFlash(req, 'error', 'Item, tanggal, dan qty wajib diisi.');
+      return res.redirect('/opening');
+    }
+    if (req.divisionIds) {
+      const item = db
+        .prepare(
+          `SELECT g.division_id
+           FROM items i
+           JOIN item_groups g ON g.id = i.group_id
+           WHERE i.id = ?`
+        )
+        .get(item_id);
+      if (!item || !req.divisionIds.includes(item.division_id)) {
+        setFlash(req, 'error', 'Tidak punya akses ke divisi tersebut.');
+        return res.redirect('/opening');
+      }
+    }
+
+    try {
+      db.prepare(
+        `UPDATE opening_balances
+         SET item_id = ?, qty = ?, price_per_unit = ?, note = ?, opening_date = ?
+         WHERE id = ?`
+      ).run(
+        item_id,
+        Number(qty),
+        price_per_unit ? Number(price_per_unit) : null,
+        note || null,
+        opening_date,
+        id
+      );
+      setFlash(req, 'success', 'Stock awal berhasil diperbarui.');
+    } catch (err) {
+      setFlash(req, 'error', 'Gagal memperbarui stock awal.');
+    }
+
+    return res.redirect('/opening');
+  }
+);
+
+router.post(
+  '/opening/:id/delete',
+  requireCompany,
+  requireAuth,
+  requireRole('user'),
+  divisionAccess,
+  (req, res) => {
+    const db = req.db;
+    const id = Number(req.params.id);
+    if (!id) {
+      setFlash(req, 'error', 'Data tidak ditemukan.');
+      return res.redirect('/opening');
+    }
+
+    if (req.divisionIds) {
+      const row = db
+        .prepare(
+          `SELECT g.division_id
+           FROM opening_balances ob
+           JOIN items i ON i.id = ob.item_id
+           JOIN item_groups g ON g.id = i.group_id
+           WHERE ob.id = ?`
+        )
+        .get(id);
+      if (!row || !req.divisionIds.includes(row.division_id)) {
+        setFlash(req, 'error', 'Tidak punya akses ke divisi tersebut.');
+        return res.redirect('/opening');
+      }
+    }
+
+    try {
+      db.prepare('DELETE FROM opening_balances WHERE id = ?').run(id);
+      setFlash(req, 'success', 'Stock awal berhasil dihapus.');
+    } catch (err) {
+      setFlash(req, 'error', 'Gagal menghapus stock awal.');
+    }
+
+    return res.redirect('/opening');
+  }
+);
 
 router.post('/opening/import', requireCompany, requireAuth, requireRole('user'), divisionAccess, (req, res) => {
   upload.single('file')(req, res, async (err) => {
