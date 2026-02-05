@@ -50,7 +50,7 @@ router.post('/users', requireCompany, requireAuth, requireRole('user'), async (r
   res.redirect('/users');
 });
 
-router.post('/users/:id/delete', requireCompany, requireAuth, requireRole('user'), (req, res) => {
+router.post('/users/:id/delete', requireCompany, requireAuth, requireRole('user'), async (req, res) => {
   const db = req.db;
   const companyId = req.company.id;
   const { id } = req.params;
