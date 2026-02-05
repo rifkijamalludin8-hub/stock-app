@@ -1,14 +1,11 @@
 const express = require('express');
 const dayjs = require('dayjs');
-const path = require('path');
 const { requireCompany, requireAuth, canSeePrice } = require('../utils/auth');
 const { divisionAccess, buildDivisionFilter } = require('../utils/division');
 const { setFlash } = require('../utils/flash');
-const { createProofUpload } = require('../utils/proof-upload');
 const { parsePrice } = require('../utils/format');
 
 const router = express.Router();
-const upload = createProofUpload('txn');
 
 router.get('/transactions', requireCompany, requireAuth, divisionAccess, async (req, res) => {
   const db = req.db;
@@ -52,70 +49,62 @@ router.get('/transactions', requireCompany, requireAuth, divisionAccess, async (
   });
 });
 
-router.post('/transactions', requireCompany, requireAuth, divisionAccess, (req, res) => {
-  upload.single('proof')(req, res, async (err) => {
-    if (err) {
-      setFlash(req, 'error', err.message || 'Upload bukti gagal.');
-      return res.redirect(`/transactions?type=${req.body.type || 'IN'}`);
-    }
-
-    const db = req.db;
-    const companyId = req.company.id;
-    const { type, item_id, qty, price_per_unit, note, txn_date } = req.body;
-    if (!type || !item_id || !qty) {
-      setFlash(req, 'error', 'Jenis, item, dan qty wajib diisi.');
+router.post('/transactions', requireCompany, requireAuth, divisionAccess, async (req, res) => {
+  const db = req.db;
+  const companyId = req.company.id;
+  const { type, item_id, qty, price_per_unit, note, txn_date } = req.body;
+  if (!type || !item_id || !qty) {
+    setFlash(req, 'error', 'Jenis, item, dan qty wajib diisi.');
+    return res.redirect('/transactions');
+  }
+  if (req.divisionIds) {
+    const item = await db.query(
+      `SELECT g.division_id
+       FROM items i
+       JOIN item_groups g ON g.id = i.group_id
+       WHERE i.id = $1 AND i.company_id = $2`,
+      [item_id, companyId]
+    );
+    const divisionId = item[0] ? Number(item[0].division_id) : null;
+    if (!divisionId || !req.divisionIds.includes(divisionId)) {
+      setFlash(req, 'error', 'Tidak punya akses ke divisi tersebut.');
       return res.redirect('/transactions');
     }
-    if (req.divisionIds) {
-      const item = await db.query(
-        `SELECT g.division_id
-         FROM items i
-         JOIN item_groups g ON g.id = i.group_id
-         WHERE i.id = $1 AND i.company_id = $2`,
-        [item_id, companyId]
-      );
-      const divisionId = item[0] ? Number(item[0].division_id) : null;
-      if (!divisionId || !req.divisionIds.includes(divisionId)) {
-        setFlash(req, 'error', 'Tidak punya akses ke divisi tersebut.');
-        return res.redirect('/transactions');
+  }
+
+  let price = null;
+  if (canSeePrice(req)) {
+    if (price_per_unit !== undefined && price_per_unit !== null && String(price_per_unit).trim() !== '') {
+      price = parsePrice(price_per_unit);
+      if (price === null) {
+        setFlash(req, 'error', 'Harga/Unit tidak valid.');
+        return res.redirect(`/transactions?type=${type}`);
       }
     }
+  }
+  try {
+    await db.query(
+      `INSERT INTO transactions (company_id, item_id, type, qty, price_per_unit, proof_path, note, txn_date, created_by, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        companyId,
+        item_id,
+        type,
+        Number(qty),
+        price,
+        null,
+        note || null,
+        txn_date || dayjs().format('YYYY-MM-DD'),
+        req.session.user.id,
+        new Date().toISOString(),
+      ]
+    );
+    setFlash(req, 'success', 'Transaksi berhasil ditambahkan.');
+  } catch (err) {
+    setFlash(req, 'error', 'Gagal menambahkan transaksi.');
+  }
 
-    let price = null;
-    if (canSeePrice(req)) {
-      if (price_per_unit !== undefined && price_per_unit !== null && String(price_per_unit).trim() !== '') {
-        price = parsePrice(price_per_unit);
-        if (price === null) {
-          setFlash(req, 'error', 'Harga/Unit tidak valid.');
-          return res.redirect(`/transactions?type=${type}`);
-        }
-      }
-    }
-    const proofPath = req.file ? path.join('uploads', 'proofs', req.file.filename) : null;
-    try {
-      await db.query(
-        `INSERT INTO transactions (company_id, item_id, type, qty, price_per_unit, proof_path, note, txn_date, created_by, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-        [
-          companyId,
-          item_id,
-          type,
-          Number(qty),
-          price,
-          proofPath,
-          note || null,
-          txn_date || dayjs().format('YYYY-MM-DD'),
-          req.session.user.id,
-          new Date().toISOString(),
-        ]
-      );
-      setFlash(req, 'success', 'Transaksi berhasil ditambahkan.');
-    } catch (err) {
-      setFlash(req, 'error', 'Gagal menambahkan transaksi.');
-    }
-
-    return res.redirect(`/transactions?type=${type}`);
-  });
+  return res.redirect(`/transactions?type=${type}`);
 });
 
 module.exports = router;

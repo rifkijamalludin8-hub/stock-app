@@ -1,16 +1,13 @@
 const express = require('express');
 const dayjs = require('dayjs');
 const fs = require('fs');
-const path = require('path');
 const { requireCompany, requireAuth, requireRole } = require('../utils/auth');
 const { divisionAccess, buildDivisionFilter } = require('../utils/division');
 const { setFlash } = require('../utils/flash');
-const { createProofUpload } = require('../utils/proof-upload');
 const { createExcelUpload } = require('../utils/excel-upload');
 const { readExcelRows, buildItemLookup, resolveItem, parseDate } = require('../utils/import-helpers');
 
 const router = express.Router();
-const upload = createProofUpload('adj');
 const excelUpload = createExcelUpload('adjustment');
 
 router.get('/adjustments', requireCompany, requireAuth, requireRole('user'), divisionAccess, async (req, res) => {
@@ -47,43 +44,35 @@ router.get('/adjustments', requireCompany, requireAuth, requireRole('user'), div
   });
 });
 
-router.post('/adjustments', requireCompany, requireAuth, requireRole('user'), (req, res) => {
-  upload.single('proof')(req, res, async (err) => {
-    if (err) {
-      setFlash(req, 'error', err.message || 'Upload bukti gagal.');
-      return res.redirect('/adjustments');
-    }
-
-    const db = req.db;
-    const companyId = req.company.id;
-    const { item_id, qty_delta, note, adj_date } = req.body;
-    if (!item_id || !qty_delta) {
-      setFlash(req, 'error', 'Item dan jumlah adjustment wajib diisi.');
-      return res.redirect('/adjustments');
-    }
-    const proofPath = req.file ? path.join('uploads', 'proofs', req.file.filename) : null;
-    try {
-      await db.query(
-        `INSERT INTO adjustments (company_id, item_id, qty_delta, proof_path, note, adj_date, created_by, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [
-          companyId,
-          item_id,
-          Number(qty_delta),
-          proofPath,
-          note || null,
-          adj_date || dayjs().format('YYYY-MM-DD'),
-          req.session.user.id,
-          new Date().toISOString(),
-        ]
-      );
-      setFlash(req, 'success', 'Adjustment berhasil ditambahkan.');
-    } catch (err) {
-      setFlash(req, 'error', 'Gagal menambahkan adjustment.');
-    }
-
+router.post('/adjustments', requireCompany, requireAuth, requireRole('user'), async (req, res) => {
+  const db = req.db;
+  const companyId = req.company.id;
+  const { item_id, qty_delta, note, adj_date } = req.body;
+  if (!item_id || !qty_delta) {
+    setFlash(req, 'error', 'Item dan jumlah adjustment wajib diisi.');
     return res.redirect('/adjustments');
-  });
+  }
+  try {
+    await db.query(
+      `INSERT INTO adjustments (company_id, item_id, qty_delta, proof_path, note, adj_date, created_by, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        companyId,
+        item_id,
+        Number(qty_delta),
+        null,
+        note || null,
+        adj_date || dayjs().format('YYYY-MM-DD'),
+        req.session.user.id,
+        new Date().toISOString(),
+      ]
+    );
+    setFlash(req, 'success', 'Adjustment berhasil ditambahkan.');
+  } catch (err) {
+    setFlash(req, 'error', 'Gagal menambahkan adjustment.');
+  }
+
+  return res.redirect('/adjustments');
 });
 
 router.post('/adjustments/import', requireCompany, requireAuth, requireRole('user'), divisionAccess, (req, res) => {
