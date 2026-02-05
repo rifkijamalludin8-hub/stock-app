@@ -1,14 +1,11 @@
 const express = require('express');
-const path = require('path');
-const fs = require('fs');
 const {
   listCompanies,
   createCompany,
   getCompanyById,
-  companiesDir,
   deleteCompanyById,
 } = require('../db/master');
-const { createCompanyDb, getCompanyDb, closeCompanyDb } = require('../db/company');
+const { query } = require('../db/pg');
 const { slugify } = require('../utils/slug');
 const { hashPassword, comparePassword } = require('../utils/auth');
 const { setFlash } = require('../utils/flash');
@@ -21,19 +18,19 @@ function isSetupKeyValid(req) {
   return req.body.setup_key === process.env.SETUP_KEY;
 }
 
-router.get('/select-company', (req, res) => {
-  const companies = listCompanies();
+router.get('/select-company', async (req, res) => {
+  const companies = await listCompanies();
   res.render('pages/select-company', { companies });
 });
 
-router.get('/setup', (req, res) => {
-  const companies = listCompanies();
+router.get('/setup', async (req, res) => {
+  const companies = await listCompanies();
   if (companies.length > 0) return res.redirect('/select-company');
   res.render('pages/setup');
 });
 
 router.post('/setup', async (req, res) => {
-  const companies = listCompanies();
+  const companies = await listCompanies();
   if (companies.length > 0) return res.redirect('/select-company');
   if (!isSetupKeyValid(req)) {
     setFlash(req, 'error', 'Setup key salah.');
@@ -47,21 +44,25 @@ router.post('/setup', async (req, res) => {
   }
 
   const slug = slugify(company_slug || company_name) || 'perusahaan';
-  const dbPath = path.join(companiesDir, `${slug}.db`);
 
-  const company = createCompany({ name: company_name, slug, dbPath });
-  const db = createCompanyDb(dbPath);
+  const company = await createCompany({ name: company_name, slug });
+  await query('INSERT INTO divisions (company_id, name, description) VALUES ($1, $2, $3)', [
+    company.id,
+    'Umum',
+    'Default',
+  ]);
   const passwordHash = await hashPassword(password);
-  db.prepare(
-    'INSERT INTO users (name, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)'
-  ).run(user_name || 'Pemilik', email, passwordHash, role || 'user', nowIso());
+  await query(
+    'INSERT INTO users (company_id, name, email, password_hash, role, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
+    [company.id, user_name || 'Pemilik', email, passwordHash, role || 'user', nowIso()]
+  );
 
   setFlash(req, 'success', 'Perusahaan dan user pertama berhasil dibuat.');
   res.redirect(`/login?company=${company.id}`);
 });
 
 router.post('/companies', async (req, res) => {
-  const { mode, name, slug: slugInput, db_path, user_name, email, password, role } = req.body;
+  const { name, slug: slugInput, user_name, email, password, role } = req.body;
   if (!name) {
     setFlash(req, 'error', 'Nama perusahaan wajib diisi.');
     return res.redirect('/select-company');
@@ -70,7 +71,7 @@ router.post('/companies', async (req, res) => {
     setFlash(req, 'error', 'Setup key salah.');
     return res.redirect('/select-company');
   }
-  if (mode === 'create' && (!email || !password)) {
+  if (!email || !password) {
     setFlash(req, 'error', 'Email dan password wajib diisi untuk user pertama.');
     return res.redirect('/select-company');
   }
@@ -78,39 +79,29 @@ router.post('/companies', async (req, res) => {
   const slugBase = slugify(slugInput || name) || 'perusahaan';
   let slug = slugBase;
   let attempt = 1;
-  while (listCompanies().some((c) => c.slug === slug)) {
+  const existing = await listCompanies();
+  while (existing.some((c) => c.slug === slug)) {
     attempt += 1;
     slug = `${slugBase}-${attempt}`;
   }
 
-  let dbPath = db_path;
-  if (mode === 'create') {
-    dbPath = path.join(companiesDir, `${slug}.db`);
-  } else if (!dbPath) {
-    setFlash(req, 'error', 'Path database wajib diisi untuk koneksi.');
-    return res.redirect('/select-company');
-  }
-
-  if (mode === 'connect' && !fs.existsSync(dbPath)) {
-    setFlash(req, 'error', 'File database tidak ditemukan.');
-    return res.redirect('/select-company');
-  }
-
-  const company = createCompany({ name, slug, dbPath });
-  const db = getCompanyDb(dbPath);
-
-  if (mode === 'create') {
-    const passwordHash = await hashPassword(password);
-    db.prepare(
-      'INSERT INTO users (name, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)'
-    ).run(user_name || 'User Utama', email, passwordHash, role || 'user', nowIso());
-  }
+  const company = await createCompany({ name, slug });
+  await query('INSERT INTO divisions (company_id, name, description) VALUES ($1, $2, $3)', [
+    company.id,
+    'Umum',
+    'Default',
+  ]);
+  const passwordHash = await hashPassword(password);
+  await query(
+    'INSERT INTO users (company_id, name, email, password_hash, role, created_at) VALUES ($1, $2, $3, $4, $5, $6)',
+    [company.id, user_name || 'User Utama', email, passwordHash, role || 'user', nowIso()]
+  );
 
   setFlash(req, 'success', 'Perusahaan berhasil ditambahkan.');
   res.redirect(`/login?company=${company.id}`);
 });
 
-router.post('/companies/delete', (req, res) => {
+router.post('/companies/delete', async (req, res) => {
   if (!isSetupKeyValid(req)) {
     setFlash(req, 'error', 'Setup key salah.');
     return res.redirect('/select-company');
@@ -122,18 +113,14 @@ router.post('/companies/delete', (req, res) => {
     return res.redirect('/select-company');
   }
 
-  const company = getCompanyById(companyId);
+  const company = await getCompanyById(companyId);
   if (!company) {
     setFlash(req, 'error', 'Perusahaan tidak ditemukan.');
     return res.redirect('/select-company');
   }
 
   try {
-    closeCompanyDb(company.db_path);
-    if (fs.existsSync(company.db_path)) {
-      fs.unlinkSync(company.db_path);
-    }
-    deleteCompanyById(companyId);
+    await deleteCompanyById(companyId);
     if (req.session.companyId === companyId) {
       req.session.companyId = null;
       req.session.user = null;
@@ -146,10 +133,10 @@ router.post('/companies/delete', (req, res) => {
   res.redirect('/select-company');
 });
 
-router.get('/login', (req, res) => {
+router.get('/login', async (req, res) => {
   if (req.query.company) req.session.companyId = Number(req.query.company);
   if (!req.session.companyId) return res.redirect('/select-company');
-  const company = getCompanyById(req.session.companyId);
+  const company = await getCompanyById(req.session.companyId);
   if (!company) {
     req.session.companyId = null;
     return res.redirect('/select-company');
@@ -159,12 +146,15 @@ router.get('/login', (req, res) => {
 
 router.post('/login', async (req, res) => {
   if (!req.session.companyId) return res.redirect('/select-company');
-  const company = getCompanyById(req.session.companyId);
+  const company = await getCompanyById(req.session.companyId);
   if (!company) return res.redirect('/select-company');
 
-  const db = getCompanyDb(company.db_path);
   const { email, password } = req.body;
-  const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+  const rows = await query('SELECT * FROM users WHERE company_id = $1 AND email = $2', [
+    company.id,
+    email,
+  ]);
+  const user = rows[0];
   if (!user) {
     setFlash(req, 'error', 'Email atau password salah.');
     return res.redirect('/login');

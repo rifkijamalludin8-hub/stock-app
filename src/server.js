@@ -6,7 +6,7 @@ const { createClient } = require('redis');
 const { flashMiddleware } = require('./utils/flash');
 const { formatPrice, formatDateTime } = require('./utils/format');
 const { scheduleAutoBackup } = require('./utils/backup');
-const { listCompanies, dataDir } = require('./db/master');
+const { listCompanies } = require('./db/master');
 
 const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
@@ -46,7 +46,7 @@ app.set('views', path.join(__dirname, '..', 'views'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '..', 'public')));
-app.use('/uploads', express.static(path.join(dataDir, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, '..', 'data', 'uploads')));
 
 app.use(
   session({
@@ -64,9 +64,14 @@ app.use(
 
 app.use(flashMiddleware);
 
-app.use((req, res, next) => {
+app.use(async (req, res, next) => {
   res.locals.user = req.session.user || null;
-  res.locals.companiesCount = listCompanies().length;
+  try {
+    const companies = await listCompanies();
+    res.locals.companiesCount = companies.length;
+  } catch (err) {
+    res.locals.companiesCount = 0;
+  }
   res.locals.currentYear = new Date().getFullYear();
   res.locals.requireSetupKey = Boolean(process.env.SETUP_KEY);
   res.locals.divisionWarning = null;

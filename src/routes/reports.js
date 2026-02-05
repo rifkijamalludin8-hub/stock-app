@@ -6,14 +6,14 @@ const { divisionAccess } = require('../utils/division');
 
 const router = express.Router();
 
-router.get('/reports', requireCompany, requireAuth, divisionAccess, (req, res) => {
+router.get('/reports', requireCompany, requireAuth, divisionAccess, async (req, res) => {
   const start = req.query.start || '';
   const end = req.query.end || '';
 
   let divisions = [];
   let rows = [];
   if (start && end) {
-    rows = getReportRows(req.db, start, end, req.divisionIds);
+    rows = await getReportRows(req.db, req.company.id, start, end, req.divisionIds);
     divisions = groupReportRows(rows);
   }
 

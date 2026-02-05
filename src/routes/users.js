@@ -5,12 +5,21 @@ const { hashPassword } = require('../utils/auth');
 
 const router = express.Router();
 
-router.get('/users', requireCompany, requireAuth, requireRole('user'), (req, res) => {
-  const users = req.db
-    .prepare('SELECT id, name, email, role, created_at FROM users ORDER BY name ASC')
-    .all();
-  const divisions = req.db.prepare('SELECT * FROM divisions ORDER BY name ASC').all();
-  const userDivisions = req.db.prepare('SELECT user_id, division_id FROM user_divisions').all();
+router.get('/users', requireCompany, requireAuth, requireRole('user'), async (req, res) => {
+  const db = req.db;
+  const companyId = req.company.id;
+  const users = await db.query(
+    'SELECT id, name, email, role, created_at FROM users WHERE company_id = $1 ORDER BY name ASC',
+    [companyId]
+  );
+  const divisions = await db.query('SELECT * FROM divisions WHERE company_id = $1 ORDER BY name ASC', [companyId]);
+  const userDivisions = await db.query(
+    `SELECT ud.user_id, ud.division_id
+     FROM user_divisions ud
+     JOIN divisions d ON d.id = ud.division_id
+     WHERE d.company_id = $1`,
+    [companyId]
+  );
   const divisionMap = new Map();
   userDivisions.forEach((row) => {
     if (!divisionMap.has(row.user_id)) divisionMap.set(row.user_id, new Set());
@@ -20,6 +29,8 @@ router.get('/users', requireCompany, requireAuth, requireRole('user'), (req, res
 });
 
 router.post('/users', requireCompany, requireAuth, requireRole('user'), async (req, res) => {
+  const db = req.db;
+  const companyId = req.company.id;
   const { name, email, password, role } = req.body;
   if (!name || !email || !password) {
     setFlash(req, 'error', 'Nama, email, dan password wajib diisi.');
@@ -27,9 +38,11 @@ router.post('/users', requireCompany, requireAuth, requireRole('user'), async (r
   }
   try {
     const passwordHash = await hashPassword(password);
-    req.db
-      .prepare('INSERT INTO users (name, email, password_hash, role, created_at) VALUES (?, ?, ?, ?, ?)')
-      .run(name, email, passwordHash, role || 'admin', new Date().toISOString());
+    await db.query(
+      `INSERT INTO users (company_id, name, email, password_hash, role, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [companyId, name, email, passwordHash, role || 'admin', new Date().toISOString()]
+    );
     setFlash(req, 'success', 'User berhasil ditambahkan.');
   } catch (err) {
     setFlash(req, 'error', 'Gagal menambahkan user (email mungkin sudah terpakai).');
@@ -38,13 +51,15 @@ router.post('/users', requireCompany, requireAuth, requireRole('user'), async (r
 });
 
 router.post('/users/:id/delete', requireCompany, requireAuth, requireRole('user'), (req, res) => {
+  const db = req.db;
+  const companyId = req.company.id;
   const { id } = req.params;
   if (Number(id) === req.session.user.id) {
     setFlash(req, 'error', 'Tidak bisa menghapus akun sendiri.');
     return res.redirect('/users');
   }
   try {
-    req.db.prepare('DELETE FROM users WHERE id = ?').run(id);
+    await db.query('DELETE FROM users WHERE id = $1 AND company_id = $2', [id, companyId]);
     setFlash(req, 'success', 'User dihapus.');
   } catch (err) {
     setFlash(req, 'error', 'Gagal menghapus user.');
@@ -52,9 +67,12 @@ router.post('/users/:id/delete', requireCompany, requireAuth, requireRole('user'
   res.redirect('/users');
 });
 
-router.post('/users/:id/divisions', requireCompany, requireAuth, requireRole('user'), (req, res) => {
+router.post('/users/:id/divisions', requireCompany, requireAuth, requireRole('user'), async (req, res) => {
+  const db = req.db;
+  const companyId = req.company.id;
   const { id } = req.params;
-  const user = req.db.prepare('SELECT id, role FROM users WHERE id = ?').get(id);
+  const userRows = await db.query('SELECT id, role FROM users WHERE id = $1 AND company_id = $2', [id, companyId]);
+  const user = userRows[0];
   if (!user) {
     setFlash(req, 'error', 'User tidak ditemukan.');
     return res.redirect('/users');
@@ -65,16 +83,24 @@ router.post('/users/:id/divisions', requireCompany, requireAuth, requireRole('us
   }
   const raw = req.body.division_ids;
   const divisionIds = Array.isArray(raw) ? raw : raw ? [raw] : [];
-  const tx = req.db.transaction(() => {
-    req.db.prepare('DELETE FROM user_divisions WHERE user_id = ?').run(id);
-    divisionIds.forEach((divisionId) => {
-      req.db
-        .prepare('INSERT INTO user_divisions (user_id, division_id) VALUES (?, ?)')
-        .run(id, Number(divisionId));
-    });
-  });
   try {
-    tx();
+    await db.query('DELETE FROM user_divisions WHERE user_id = $1', [id]);
+    if (divisionIds.length) {
+      const allowed = await db.query('SELECT id FROM divisions WHERE company_id = $1', [companyId]);
+      const allowedSet = new Set(allowed.map((row) => Number(row.id)));
+      const values = [];
+      const params = [];
+      let idx = 1;
+      divisionIds.forEach((divisionId) => {
+        const parsed = Number(divisionId);
+        if (!allowedSet.has(parsed)) return;
+        values.push(`($${idx++}, $${idx++})`);
+        params.push(Number(id), parsed);
+      });
+      if (values.length) {
+        await db.query(`INSERT INTO user_divisions (user_id, division_id) VALUES ${values.join(', ')}`, params);
+      }
+    }
     setFlash(req, 'success', 'Divisi admin diperbarui.');
   } catch (err) {
     setFlash(req, 'error', 'Gagal memperbarui divisi admin.');

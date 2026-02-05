@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { getCompanyById } = require('../db/master');
-const { getCompanyDb } = require('../db/company');
+const { query } = require('../db/pg');
 
 async function hashPassword(password) {
   const salt = await bcrypt.genSalt(10);
@@ -11,17 +11,18 @@ async function comparePassword(password, hash) {
   return bcrypt.compare(password, hash);
 }
 
-function requireCompany(req, res, next) {
+async function requireCompany(req, res, next) {
   if (!req.session.companyId) return res.redirect('/select-company');
-  const company = getCompanyById(req.session.companyId);
+  const company = await getCompanyById(req.session.companyId);
   if (!company) {
     req.session.companyId = null;
     return res.redirect('/select-company');
   }
   req.company = company;
-  req.db = getCompanyDb(company.db_path);
+  req.db = { query };
   res.locals.company = company;
-  next();
+  res.locals.divisionWarning = null;
+  return next();
 }
 
 function requireAuth(req, res, next) {

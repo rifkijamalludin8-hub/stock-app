@@ -13,8 +13,9 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
   const { resource } = req.params;
   const format = (req.query.format || 'xlsx').toLowerCase();
   const db = req.db;
+  const companyId = req.company.id;
   const showPrice = canSeePrice(req);
-  const filter = buildDivisionFilter(req.divisionIds, 'd.id');
+  const filter = buildDivisionFilter(req.divisionIds, 'd.id', 2);
 
   let columns = [];
   let rows = [];
@@ -29,20 +30,19 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
       { header: 'Nama Kelompok', key: 'name', width: 30 },
       { header: 'Deskripsi', key: 'description', width: 40 },
     ];
-    rows = db
-      .prepare(
-        `SELECT g.name, g.description, d.name AS division_name
-         FROM item_groups g
-         JOIN divisions d ON d.id = g.division_id
-         WHERE 1=1 ${filter.clause}
-         ORDER BY d.name ASC, g.name ASC`
-      )
-      .all(...filter.params);
+    rows = await db.query(
+      `SELECT g.name, g.description, d.name AS division_name
+       FROM item_groups g
+       JOIN divisions d ON d.id = g.division_id
+       WHERE g.company_id = $1 ${filter.clause}
+       ORDER BY d.name ASC, g.name ASC`,
+      [companyId, ...filter.params]
+    );
   }
 
   if (resource === 'items') {
     title = 'Daftar Item';
-    const stockRows = getCurrentStockRows(db, req.divisionIds);
+    const stockRows = await getCurrentStockRows(db, companyId, req.divisionIds);
     const stockMap = new Map(stockRows.map((row) => [row.id, row.stock]));
     columns = [
       { header: 'Divisi', key: 'division_name', width: 22 },
@@ -54,20 +54,20 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
       { header: 'Min Stock', key: 'min_stock', width: 12 },
       { header: 'Stock', key: 'stock', width: 12 },
     ];
-    rows = db
-      .prepare(
+    rows = (
+      await db.query(
         `SELECT i.*, g.name AS group_name, d.name AS division_name
          FROM items i
          JOIN item_groups g ON g.id = i.group_id
          JOIN divisions d ON d.id = g.division_id
-         WHERE 1=1 ${filter.clause}
-         ORDER BY d.name ASC, g.name ASC, i.name ASC`
+         WHERE i.company_id = $1 ${filter.clause}
+         ORDER BY d.name ASC, g.name ASC, i.name ASC`,
+        [companyId, ...filter.params]
       )
-      .all(...filter.params)
-      .map((row) => ({
-        ...row,
-        stock: stockMap.get(row.id) || 0,
-      }));
+    ).map((row) => ({
+      ...row,
+      stock: stockMap.get(row.id) || 0,
+    }));
   }
 
   if (resource === 'transactions') {
@@ -75,8 +75,10 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
     const start = req.query.start;
     const end = req.query.end;
     const typeFilter = req.query.type === 'IN' || req.query.type === 'OUT' ? req.query.type : null;
-    const dateClause = start && end ? 'AND t.txn_date BETWEEN ? AND ?' : '';
-    const typeClause = typeFilter ? 'AND t.type = ?' : '';
+    const params = [companyId];
+    let idx = filter.nextIndex;
+    const dateClause = start && end ? `AND t.txn_date BETWEEN $${idx++} AND $${idx++}` : '';
+    const typeClause = typeFilter ? `AND t.type = $${idx++}` : '';
     columns = [
       { header: 'Tanggal', key: 'txn_date', width: 14 },
       { header: 'Tipe', key: 'type', width: 8 },
@@ -93,31 +95,29 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
       { header: 'Dibuat Oleh', key: 'created_by_name', width: 20 },
       { header: 'Dibuat', key: 'created_at', width: 20, format: formatDateTime },
     ];
-    rows = db
-      .prepare(
-        `SELECT t.txn_date,
-                t.type,
-                t.qty,
-                t.price_per_unit,
-                t.note,
-                t.created_at,
-                u.name AS created_by_name,
-                (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label
-         FROM transactions t
-         JOIN items i ON i.id = t.item_id
-         JOIN item_groups g ON g.id = i.group_id
-         JOIN divisions d ON d.id = g.division_id
-         LEFT JOIN users u ON u.id = t.created_by
-         WHERE 1=1 ${filter.clause}
-           ${dateClause}
-           ${typeClause}
-         ORDER BY t.txn_date DESC, t.id DESC`
-      )
-      .all(
-        ...filter.params,
-        ...(start && end ? [start, end] : []),
-        ...(typeFilter ? [typeFilter] : [])
-      );
+    if (filter.params.length) params.push(...filter.params);
+    if (start && end) params.push(start, end);
+    if (typeFilter) params.push(typeFilter);
+    rows = await db.query(
+      `SELECT t.txn_date,
+              t.type,
+              t.qty,
+              t.price_per_unit,
+              t.note,
+              t.created_at,
+              u.name AS created_by_name,
+              (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label
+       FROM transactions t
+       JOIN items i ON i.id = t.item_id
+       JOIN item_groups g ON g.id = i.group_id
+       JOIN divisions d ON d.id = g.division_id
+       LEFT JOIN users u ON u.id = t.created_by
+       WHERE t.company_id = $1 ${filter.clause}
+         ${dateClause}
+         ${typeClause}
+       ORDER BY t.txn_date DESC, t.id DESC`,
+      params
+    );
     if (!showPrice) {
       columns = columns.filter((col) => col.key !== 'price_per_unit');
       rows = rows.map(({ price_per_unit, ...rest }) => rest);
@@ -137,23 +137,22 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
       { header: 'Dibuat Oleh', key: 'created_by_name', width: 20 },
       { header: 'Dibuat', key: 'created_at', width: 20, format: formatDateTime },
     ];
-    rows = db
-      .prepare(
-        `SELECT a.adj_date,
-                a.qty_delta,
-                a.note,
-                a.created_at,
-                u.name AS created_by_name,
-                (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label
-         FROM adjustments a
-         JOIN items i ON i.id = a.item_id
-         JOIN item_groups g ON g.id = i.group_id
-         JOIN divisions d ON d.id = g.division_id
-         LEFT JOIN users u ON u.id = a.created_by
-         WHERE 1=1 ${filter.clause}
-         ORDER BY a.adj_date DESC, a.id DESC`
-      )
-      .all(...filter.params);
+    rows = await db.query(
+      `SELECT a.adj_date,
+              a.qty_delta,
+              a.note,
+              a.created_at,
+              u.name AS created_by_name,
+              (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label
+       FROM adjustments a
+       JOIN items i ON i.id = a.item_id
+       JOIN item_groups g ON g.id = i.group_id
+       JOIN divisions d ON d.id = g.division_id
+       LEFT JOIN users u ON u.id = a.created_by
+       WHERE a.company_id = $1 ${filter.clause}
+       ORDER BY a.adj_date DESC, a.id DESC`,
+      [companyId, ...filter.params]
+    );
   }
 
   if (resource === 'users') {
@@ -167,7 +166,10 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
       { header: 'Role', key: 'role', width: 12 },
       { header: 'Dibuat', key: 'created_at', width: 20 },
     ];
-    rows = db.prepare('SELECT name, email, role, created_at FROM users ORDER BY name ASC').all();
+    rows = await db.query(
+      'SELECT name, email, role, created_at FROM users WHERE company_id = $1 ORDER BY name ASC',
+      [companyId]
+    );
   }
 
   if (resource === 'report') {
@@ -176,7 +178,7 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
     if (!start || !end) return res.status(400).send('Start/end wajib diisi');
     title = 'Laporan Stock';
     filename = `laporan-stock-${start}-sd-${end}`;
-    const reportRows = getReportRows(db, start, end, req.divisionIds);
+    const reportRows = await getReportRows(db, companyId, start, end, req.divisionIds);
     columns = [
       { header: 'Divisi', key: 'division_name', width: 22, pdfWidth: 70 },
       { header: 'Kelompok', key: 'group_name', width: 22, pdfWidth: 70 },

@@ -1,49 +1,49 @@
 const { buildDivisionFilter } = require('./division');
 
-function getReportRows(db, startDate, endDate, divisionIds = null) {
-  const filter = buildDivisionFilter(divisionIds, 'd.id');
+async function getReportRows(db, companyId, startDate, endDate, divisionIds = null) {
+  const filter = buildDivisionFilter(divisionIds, 'd.id', 12);
   const sql = `
     WITH
       in_before AS (
         SELECT item_id, SUM(qty) qty
         FROM transactions
-        WHERE type = 'IN' AND txn_date < ?
+        WHERE type = 'IN' AND txn_date < $2 AND company_id = $1
         GROUP BY item_id
       ),
       out_before AS (
         SELECT item_id, SUM(qty) qty
         FROM transactions
-        WHERE type = 'OUT' AND txn_date < ?
+        WHERE type = 'OUT' AND txn_date < $3 AND company_id = $1
         GROUP BY item_id
       ),
       adj_before AS (
         SELECT item_id, SUM(qty_delta) qty
         FROM adjustments
-        WHERE adj_date < ?
+        WHERE adj_date < $4 AND company_id = $1
         GROUP BY item_id
       ),
       opening_before AS (
         SELECT item_id, SUM(qty) qty
         FROM opening_balances
-        WHERE opening_date <= ?
+        WHERE opening_date <= $5 AND company_id = $1
         GROUP BY item_id
       ),
       in_range AS (
         SELECT item_id, SUM(qty) qty
         FROM transactions
-        WHERE type = 'IN' AND txn_date BETWEEN ? AND ?
+        WHERE type = 'IN' AND txn_date BETWEEN $6 AND $7 AND company_id = $1
         GROUP BY item_id
       ),
       out_range AS (
         SELECT item_id, SUM(qty) qty
         FROM transactions
-        WHERE type = 'OUT' AND txn_date BETWEEN ? AND ?
+        WHERE type = 'OUT' AND txn_date BETWEEN $8 AND $9 AND company_id = $1
         GROUP BY item_id
       ),
       adj_range AS (
         SELECT item_id, SUM(qty_delta) qty
         FROM adjustments
-        WHERE adj_date BETWEEN ? AND ?
+        WHERE adj_date BETWEEN $10 AND $11 AND company_id = $1
         GROUP BY item_id
       )
     SELECT
@@ -67,13 +67,15 @@ function getReportRows(db, startDate, endDate, divisionIds = null) {
           WHERE t.item_id = i.id
             AND t.type = 'IN'
             AND t.price_per_unit IS NOT NULL
+            AND t.company_id = $1
           UNION ALL
           SELECT ob.opening_date AS dt, ob.price_per_unit
           FROM opening_balances ob
           WHERE ob.item_id = i.id
             AND ob.price_per_unit IS NOT NULL
+            AND ob.company_id = $1
         )
-        WHERE dt <= ?
+        WHERE dt <= $11
         ORDER BY dt DESC
         LIMIT 1
       ) AS price_per_unit
@@ -87,11 +89,12 @@ function getReportRows(db, startDate, endDate, divisionIds = null) {
     LEFT JOIN in_range ON in_range.item_id = i.id
     LEFT JOIN out_range ON out_range.item_id = i.id
     LEFT JOIN adj_range ON adj_range.item_id = i.id
-    WHERE 1=1 ${filter.clause}
+    WHERE i.company_id = $1 ${filter.clause}
     ORDER BY d.name ASC, g.name ASC, i.name ASC, i.expiry_date ASC
   `;
 
   const params = [
+    companyId,
     startDate,
     startDate,
     startDate,
@@ -101,11 +104,10 @@ function getReportRows(db, startDate, endDate, divisionIds = null) {
     startDate,
     endDate,
     startDate,
-    endDate,
     endDate,
   ];
 
-  const rows = db.prepare(sql).all(...params, ...filter.params);
+  const rows = await db.query(sql, [...params, ...filter.params]);
 
   return rows.map((row) => {
     const opening = row.opening_qty + row.in_before - row.out_before + row.adj_before;

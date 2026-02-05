@@ -107,16 +107,15 @@ async function readExcelRows(filePath) {
   return { rows, headers };
 }
 
-function buildItemLookup(db, divisionIds, filterClause, filterParams) {
-  const rows = db
-    .prepare(
-      `SELECT i.id, i.name, i.expiry_date, i.sku, g.name AS group_name, d.id AS division_id
-       FROM items i
-       JOIN item_groups g ON g.id = i.group_id
-       JOIN divisions d ON d.id = g.division_id
-       WHERE 1=1 ${filterClause}`
-    )
-    .all(...filterParams);
+async function buildItemLookup(db, companyId, divisionIds, filterClause, filterParams) {
+  const rows = await db.query(
+    `SELECT i.id, i.name, i.expiry_date, i.sku, g.name AS group_name, d.id AS division_id
+     FROM items i
+     JOIN item_groups g ON g.id = i.group_id
+     JOIN divisions d ON d.id = g.division_id
+     WHERE i.company_id = $1 ${filterClause}`,
+    [companyId, ...filterParams]
+  );
 
   const byId = new Map();
   const byLabel = new Map();

@@ -13,34 +13,33 @@ const router = express.Router();
 const upload = createProofUpload('adj');
 const excelUpload = createExcelUpload('adjustment');
 
-router.get('/adjustments', requireCompany, requireAuth, requireRole('user'), divisionAccess, (req, res) => {
+router.get('/adjustments', requireCompany, requireAuth, requireRole('user'), divisionAccess, async (req, res) => {
   const db = req.db;
-  const filter = buildDivisionFilter(req.divisionIds, 'd.id');
-  const items = db
-    .prepare(
-      `SELECT i.id, i.name, i.expiry_date, g.name AS group_name
-       FROM items i
-       JOIN item_groups g ON g.id = i.group_id
-       JOIN divisions d ON d.id = g.division_id
-       WHERE 1=1 ${filter.clause}
-       ORDER BY g.name ASC, i.name ASC`
-    )
-    .all(...filter.params);
-  const adjustments = db
-    .prepare(
-      `SELECT a.*,
-              (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label,
-              u.name AS created_by_name
-       FROM adjustments a
-       JOIN items i ON i.id = a.item_id
-       JOIN item_groups g ON g.id = i.group_id
-       JOIN divisions d ON d.id = g.division_id
-       LEFT JOIN users u ON u.id = a.created_by
-       WHERE 1=1 ${filter.clause}
-       ORDER BY a.adj_date DESC, a.id DESC
-       LIMIT 50`
-    )
-    .all(...filter.params);
+  const companyId = req.company.id;
+  const filter = buildDivisionFilter(req.divisionIds, 'd.id', 2);
+  const items = await db.query(
+    `SELECT i.id, i.name, i.expiry_date, g.name AS group_name
+     FROM items i
+     JOIN item_groups g ON g.id = i.group_id
+     JOIN divisions d ON d.id = g.division_id
+     WHERE i.company_id = $1 ${filter.clause}
+     ORDER BY g.name ASC, i.name ASC`,
+    [companyId, ...filter.params]
+  );
+  const adjustments = await db.query(
+    `SELECT a.*,
+            (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label,
+            u.name AS created_by_name
+     FROM adjustments a
+     JOIN items i ON i.id = a.item_id
+     JOIN item_groups g ON g.id = i.group_id
+     JOIN divisions d ON d.id = g.division_id
+     LEFT JOIN users u ON u.id = a.created_by
+     WHERE a.company_id = $1 ${filter.clause}
+     ORDER BY a.adj_date DESC, a.id DESC
+     LIMIT 50`,
+    [companyId, ...filter.params]
+  );
   res.render('pages/adjustments', {
     items,
     adjustments,
@@ -49,13 +48,14 @@ router.get('/adjustments', requireCompany, requireAuth, requireRole('user'), div
 });
 
 router.post('/adjustments', requireCompany, requireAuth, requireRole('user'), (req, res) => {
-  upload.single('proof')(req, res, (err) => {
+  upload.single('proof')(req, res, async (err) => {
     if (err) {
       setFlash(req, 'error', err.message || 'Upload bukti gagal.');
       return res.redirect('/adjustments');
     }
 
     const db = req.db;
+    const companyId = req.company.id;
     const { item_id, qty_delta, note, adj_date } = req.body;
     if (!item_id || !qty_delta) {
       setFlash(req, 'error', 'Item dan jumlah adjustment wajib diisi.');
@@ -63,17 +63,19 @@ router.post('/adjustments', requireCompany, requireAuth, requireRole('user'), (r
     }
     const proofPath = req.file ? path.join('uploads', 'proofs', req.file.filename) : null;
     try {
-      db.prepare(
-        `INSERT INTO adjustments (item_id, qty_delta, proof_path, note, adj_date, created_by, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      ).run(
-        item_id,
-        Number(qty_delta),
-        proofPath,
-        note || null,
-        adj_date || dayjs().format('YYYY-MM-DD'),
-        req.session.user.id,
-        new Date().toISOString()
+      await db.query(
+        `INSERT INTO adjustments (company_id, item_id, qty_delta, proof_path, note, adj_date, created_by, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          companyId,
+          item_id,
+          Number(qty_delta),
+          proofPath,
+          note || null,
+          adj_date || dayjs().format('YYYY-MM-DD'),
+          req.session.user.id,
+          new Date().toISOString(),
+        ]
       );
       setFlash(req, 'success', 'Adjustment berhasil ditambahkan.');
     } catch (err) {
@@ -96,7 +98,8 @@ router.post('/adjustments/import', requireCompany, requireAuth, requireRole('use
     }
 
     const db = req.db;
-    const filter = buildDivisionFilter(req.divisionIds, 'd.id');
+    const companyId = req.company.id;
+    const filter = buildDivisionFilter(req.divisionIds, 'd.id', 2);
     try {
       const { rows, headers } = await readExcelRows(req.file.path);
       if (rows.length === 0) {
@@ -114,11 +117,7 @@ router.post('/adjustments/import', requireCompany, requireAuth, requireRole('use
         return res.redirect('/adjustments');
       }
 
-      const lookup = buildItemLookup(db, req.divisionIds, filter.clause, filter.params);
-      const insert = db.prepare(
-        `INSERT INTO adjustments (item_id, qty_delta, proof_path, note, adj_date, created_by, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      );
+      const lookup = await buildItemLookup(db, companyId, req.divisionIds, filter.clause, filter.params);
       const now = new Date().toISOString();
       const payloads = [];
       const errors = [];
@@ -147,20 +146,29 @@ router.post('/adjustments/import', requireCompany, requireAuth, requireRole('use
       });
 
       if (payloads.length) {
-        const insertMany = db.transaction((rowsToInsert) => {
-          rowsToInsert.forEach((row) => {
-            insert.run(
-              row.item_id,
-              row.qty_delta,
-              null,
-              row.note,
-              row.adj_date,
-              req.session.user.id,
-              now
-            );
-          });
+        const values = [];
+        const params = [];
+        let idx = 1;
+        payloads.forEach((row) => {
+          values.push(
+            `($${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++})`
+          );
+          params.push(
+            companyId,
+            row.item_id,
+            row.qty_delta,
+            null,
+            row.note,
+            row.adj_date,
+            req.session.user.id,
+            now
+          );
         });
-        insertMany(payloads);
+        await db.query(
+          `INSERT INTO adjustments (company_id, item_id, qty_delta, proof_path, note, adj_date, created_by, created_at)
+           VALUES ${values.join(', ')}`,
+          params
+        );
       }
 
       const message = `Import selesai. Berhasil: ${payloads.length}, Gagal: ${errors.length}.`;

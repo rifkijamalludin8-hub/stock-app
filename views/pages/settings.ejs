@@ -28,11 +28,27 @@
     <div class="card-header">
       <div>
         <h3>Backup Database</h3>
-        <p>Unduh file database untuk perusahaan ini.</p>
+        <p>Supabase tidak menyediakan file .db langsung.</p>
       </div>
     </div>
-    <p class="muted">File backup berformat .db dan bisa disimpan sebagai arsip.</p>
-    <a class="btn ghost" href="/backup/company">Download Backup</a>
+    <p class="muted">Gunakan Auto Backup (email) atau export Excel untuk arsip data.</p>
+    <a class="btn ghost" href="/backup/company">Info Backup</a>
+  </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Test Auto Backup</h3>
+        <p>Kirim backup otomatis ke email User Utama sekarang.</p>
+      </div>
+    </div>
+    <p class="muted">
+      Sistem akan mengirim 3 file: Database (.db), Excel Transaksi, dan Excel Laporan.
+      Pastikan SMTP sudah diisi di Render.
+    </p>
+    <form method="post" action="/backup/test">
+      <button class="btn primary" type="submit">Kirim Backup Sekarang</button>
+    </form>
   </div>
 </div>
 

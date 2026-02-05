@@ -5,53 +5,54 @@ const { requireCompany, requireAuth, requireRole, canSeePrice } = require('../ut
 const { setFlash } = require('../utils/flash');
 const { divisionAccess, buildDivisionFilter } = require('../utils/division');
 const { createExcelUpload } = require('../utils/excel-upload');
+const { parsePrice } = require('../utils/format');
 const { readExcelRows, buildItemLookup, resolveItem, parseDate } = require('../utils/import-helpers');
 
 const router = express.Router();
 const upload = createExcelUpload('opening');
 
-router.get('/opening', requireCompany, requireAuth, divisionAccess, (req, res) => {
+router.get('/opening', requireCompany, requireAuth, divisionAccess, async (req, res) => {
   const db = req.db;
-  const filter = buildDivisionFilter(req.divisionIds, 'd.id');
+  const companyId = req.company.id;
+  const filterItems = buildDivisionFilter(req.divisionIds, 'd.id', 2);
+  const filterEdit = buildDivisionFilter(req.divisionIds, 'd.id', 3);
   const editId = req.query.edit ? Number(req.query.edit) : null;
-  const items = db
-    .prepare(
-      `SELECT i.id, i.name, i.expiry_date, g.name AS group_name
-       FROM items i
-       JOIN item_groups g ON g.id = i.group_id
-       JOIN divisions d ON d.id = g.division_id
-       WHERE 1=1 ${filter.clause}
-       ORDER BY g.name ASC, i.name ASC`
-    )
-    .all(...filter.params);
+  const items = await db.query(
+    `SELECT i.id, i.name, i.expiry_date, g.name AS group_name
+     FROM items i
+     JOIN item_groups g ON g.id = i.group_id
+     JOIN divisions d ON d.id = g.division_id
+     WHERE i.company_id = $1 ${filterItems.clause}
+     ORDER BY g.name ASC, i.name ASC`,
+    [companyId, ...filterItems.params]
+  );
 
   let editOpening = null;
   if (editId && req.session.user && req.session.user.role === 'user') {
-    editOpening = db
-      .prepare(
-        `SELECT ob.*, i.name AS item_name, i.expiry_date, g.name AS group_name
-         FROM opening_balances ob
-         JOIN items i ON i.id = ob.item_id
-         JOIN item_groups g ON g.id = i.group_id
-         JOIN divisions d ON d.id = g.division_id
-         WHERE ob.id = ?
-           ${filter.clause}
-         LIMIT 1`
-      )
-      .get(editId, ...filter.params);
-  }
-
-  const openings = db
-    .prepare(
-      `SELECT ob.*, i.name AS item_name, i.expiry_date, g.name AS group_name, d.name AS division_name
+    const rows = await db.query(
+      `SELECT ob.*, i.name AS item_name, i.expiry_date, g.name AS group_name
        FROM opening_balances ob
        JOIN items i ON i.id = ob.item_id
        JOIN item_groups g ON g.id = i.group_id
        JOIN divisions d ON d.id = g.division_id
-       WHERE 1=1 ${filter.clause}
-       ORDER BY ob.opening_date DESC, ob.id DESC`
-    )
-    .all(...filter.params);
+       WHERE ob.id = $1 AND ob.company_id = $2
+         ${filterEdit.clause}
+       LIMIT 1`,
+      [editId, companyId, ...filterEdit.params]
+    );
+    editOpening = rows[0] || null;
+  }
+
+  const openings = await db.query(
+    `SELECT ob.*, i.name AS item_name, i.expiry_date, g.name AS group_name, d.name AS division_name
+     FROM opening_balances ob
+     JOIN items i ON i.id = ob.item_id
+     JOIN item_groups g ON g.id = i.group_id
+     JOIN divisions d ON d.id = g.division_id
+     WHERE ob.company_id = $1 ${filterItems.clause}
+     ORDER BY ob.opening_date DESC, ob.id DESC`,
+    [companyId, ...filterItems.params]
+  );
 
   res.render('pages/opening', {
     items,
@@ -63,40 +64,52 @@ router.get('/opening', requireCompany, requireAuth, divisionAccess, (req, res) =
   });
 });
 
-router.post('/opening', requireCompany, requireAuth, requireRole('user'), divisionAccess, (req, res) => {
+router.post('/opening', requireCompany, requireAuth, requireRole('user'), divisionAccess, async (req, res) => {
   const db = req.db;
+  const companyId = req.company.id;
   const { item_id, qty, price_per_unit, note, opening_date } = req.body;
   if (!item_id || !qty || !opening_date) {
     setFlash(req, 'error', 'Item, tanggal, dan qty wajib diisi.');
     return res.redirect('/opening');
   }
   if (req.divisionIds) {
-    const item = db
-      .prepare(
-        `SELECT g.division_id
-         FROM items i
-         JOIN item_groups g ON g.id = i.group_id
-         WHERE i.id = ?`
-      )
-      .get(item_id);
-    if (!item || !req.divisionIds.includes(item.division_id)) {
+    const item = await db.query(
+      `SELECT g.division_id
+       FROM items i
+       JOIN item_groups g ON g.id = i.group_id
+       WHERE i.id = $1 AND i.company_id = $2`,
+      [item_id, companyId]
+    );
+    const divisionId = item[0] ? Number(item[0].division_id) : null;
+    if (!divisionId || !req.divisionIds.includes(divisionId)) {
       setFlash(req, 'error', 'Tidak punya akses ke divisi tersebut.');
       return res.redirect('/opening');
     }
   }
 
+  let priceValue = null;
+  if (price_per_unit !== undefined && price_per_unit !== null && String(price_per_unit).trim() !== '') {
+    priceValue = parsePrice(price_per_unit);
+    if (priceValue === null) {
+      setFlash(req, 'error', 'Harga/Unit tidak valid.');
+      return res.redirect('/opening');
+    }
+  }
+
   try {
-    db.prepare(
-      `INSERT INTO opening_balances (item_id, qty, price_per_unit, note, opening_date, created_by, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
-    ).run(
-      item_id,
-      Number(qty),
-      price_per_unit ? Number(price_per_unit) : null,
-      note || null,
-      opening_date,
-      req.session.user.id,
-      new Date().toISOString()
+    await db.query(
+      `INSERT INTO opening_balances (company_id, item_id, qty, price_per_unit, note, opening_date, created_by, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        companyId,
+        item_id,
+        Number(qty),
+        priceValue,
+        note || null,
+        opening_date,
+        req.session.user.id,
+        new Date().toISOString(),
+      ]
     );
     setFlash(req, 'success', 'Stock awal berhasil ditambahkan.');
   } catch (err) {
@@ -114,6 +127,7 @@ router.post(
   divisionAccess,
   (req, res) => {
     const db = req.db;
+    const companyId = req.company.id;
     const id = Number(req.params.id);
     const { item_id, qty, price_per_unit, note, opening_date } = req.body;
     if (!id || !item_id || !qty || !opening_date) {
@@ -121,32 +135,35 @@ router.post(
       return res.redirect('/opening');
     }
     if (req.divisionIds) {
-      const item = db
-        .prepare(
-          `SELECT g.division_id
-           FROM items i
-           JOIN item_groups g ON g.id = i.group_id
-           WHERE i.id = ?`
-        )
-        .get(item_id);
-      if (!item || !req.divisionIds.includes(item.division_id)) {
+      const item = await db.query(
+        `SELECT g.division_id
+         FROM items i
+         JOIN item_groups g ON g.id = i.group_id
+         WHERE i.id = $1 AND i.company_id = $2`,
+        [item_id, companyId]
+      );
+      const divisionId = item[0] ? Number(item[0].division_id) : null;
+      if (!divisionId || !req.divisionIds.includes(divisionId)) {
         setFlash(req, 'error', 'Tidak punya akses ke divisi tersebut.');
         return res.redirect('/opening');
       }
     }
 
+    let priceValue = null;
+    if (price_per_unit !== undefined && price_per_unit !== null && String(price_per_unit).trim() !== '') {
+      priceValue = parsePrice(price_per_unit);
+      if (priceValue === null) {
+        setFlash(req, 'error', 'Harga/Unit tidak valid.');
+        return res.redirect('/opening');
+      }
+    }
+
     try {
-      db.prepare(
+      await db.query(
         `UPDATE opening_balances
-         SET item_id = ?, qty = ?, price_per_unit = ?, note = ?, opening_date = ?
-         WHERE id = ?`
-      ).run(
-        item_id,
-        Number(qty),
-        price_per_unit ? Number(price_per_unit) : null,
-        note || null,
-        opening_date,
-        id
+         SET item_id = $1, qty = $2, price_per_unit = $3, note = $4, opening_date = $5
+         WHERE id = $6 AND company_id = $7`,
+        [item_id, Number(qty), priceValue, note || null, opening_date, id, companyId]
       );
       setFlash(req, 'success', 'Stock awal berhasil diperbarui.');
     } catch (err) {
@@ -165,6 +182,7 @@ router.post(
   divisionAccess,
   (req, res) => {
     const db = req.db;
+    const companyId = req.company.id;
     const id = Number(req.params.id);
     if (!id) {
       setFlash(req, 'error', 'Data tidak ditemukan.');
@@ -172,23 +190,23 @@ router.post(
     }
 
     if (req.divisionIds) {
-      const row = db
-        .prepare(
-          `SELECT g.division_id
-           FROM opening_balances ob
-           JOIN items i ON i.id = ob.item_id
-           JOIN item_groups g ON g.id = i.group_id
-           WHERE ob.id = ?`
-        )
-        .get(id);
-      if (!row || !req.divisionIds.includes(row.division_id)) {
+      const row = await db.query(
+        `SELECT g.division_id
+         FROM opening_balances ob
+         JOIN items i ON i.id = ob.item_id
+         JOIN item_groups g ON g.id = i.group_id
+         WHERE ob.id = $1 AND ob.company_id = $2`,
+        [id, companyId]
+      );
+      const divisionId = row[0] ? Number(row[0].division_id) : null;
+      if (!divisionId || !req.divisionIds.includes(divisionId)) {
         setFlash(req, 'error', 'Tidak punya akses ke divisi tersebut.');
         return res.redirect('/opening');
       }
     }
 
     try {
-      db.prepare('DELETE FROM opening_balances WHERE id = ?').run(id);
+      await db.query('DELETE FROM opening_balances WHERE id = $1 AND company_id = $2', [id, companyId]);
       setFlash(req, 'success', 'Stock awal berhasil dihapus.');
     } catch (err) {
       setFlash(req, 'error', 'Gagal menghapus stock awal.');
@@ -210,7 +228,8 @@ router.post('/opening/import', requireCompany, requireAuth, requireRole('user'),
     }
 
     const db = req.db;
-    const filter = buildDivisionFilter(req.divisionIds, 'd.id');
+    const companyId = req.company.id;
+    const filter = buildDivisionFilter(req.divisionIds, 'd.id', 2);
     try {
       const { rows, headers } = await readExcelRows(req.file.path);
       if (rows.length === 0) {
@@ -231,11 +250,7 @@ router.post('/opening/import', requireCompany, requireAuth, requireRole('user'),
         return res.redirect('/opening');
       }
 
-      const lookup = buildItemLookup(db, req.divisionIds, filter.clause, filter.params);
-      const insert = db.prepare(
-        `INSERT INTO opening_balances (item_id, qty, price_per_unit, note, opening_date, created_by, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`
-      );
+      const lookup = await buildItemLookup(db, companyId, req.divisionIds, filter.clause, filter.params);
       const now = new Date().toISOString();
       const payloads = [];
       const errors = [];
@@ -260,7 +275,7 @@ router.post('/opening/import', requireCompany, requireAuth, requireRole('user'),
         }
 
         const price = data.price_per_unit !== undefined && data.price_per_unit !== null && data.price_per_unit !== ''
-          ? Number(data.price_per_unit)
+          ? parsePrice(data.price_per_unit)
           : null;
         if (price !== null && !Number.isFinite(price)) {
           errors.push(`Baris ${rowNumber}: Harga tidak valid`);
@@ -277,20 +292,29 @@ router.post('/opening/import', requireCompany, requireAuth, requireRole('user'),
       });
 
       if (payloads.length) {
-        const insertMany = db.transaction((rowsToInsert) => {
-          rowsToInsert.forEach((row) => {
-            insert.run(
-              row.item_id,
-              row.qty,
-              row.price_per_unit,
-              row.note,
-              row.opening_date,
-              req.session.user.id,
-              now
-            );
-          });
+        const values = [];
+        const params = [];
+        let idx = 1;
+        payloads.forEach((row) => {
+          values.push(
+            `($${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++})`
+          );
+          params.push(
+            companyId,
+            row.item_id,
+            row.qty,
+            row.price_per_unit,
+            row.note,
+            row.opening_date,
+            req.session.user.id,
+            now
+          );
         });
-        insertMany(payloads);
+        await db.query(
+          `INSERT INTO opening_balances (company_id, item_id, qty, price_per_unit, note, opening_date, created_by, created_at)
+           VALUES ${values.join(', ')}`,
+          params
+        );
       }
 
       const message = `Import selesai. Berhasil: ${payloads.length}, Gagal: ${errors.length}.`;

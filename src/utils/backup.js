@@ -1,29 +1,35 @@
-const fs = require('fs');
-const path = require('path');
 const dayjs = require('dayjs');
 const ExcelJS = require('exceljs');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
 const { listCompanies } = require('../db/master');
-const { getCompanyDb, closeCompanyDb } = require('../db/company');
+const { query } = require('../db/pg');
 const { getReportRows } = require('./report');
-const { formatPrice, formatDateTime } = require('./format');
+const { formatDateTime } = require('./format');
 
-function getPrimaryUserEmail(db) {
-  const row = db
-    .prepare("SELECT email FROM users WHERE role = 'user' ORDER BY id ASC LIMIT 1")
-    .get();
-  return row ? row.email : null;
+async function getPrimaryUserEmail(companyId) {
+  const rows = await query(
+    "SELECT email FROM users WHERE company_id = $1 AND role = 'user' ORDER BY id ASC LIMIT 1",
+    [companyId]
+  );
+  return rows[0] ? rows[0].email : null;
 }
 
-function resolveDateRange(db) {
-  const ranges = [
-    db.prepare('SELECT MIN(txn_date) AS min, MAX(txn_date) AS max FROM transactions').get(),
-    db.prepare('SELECT MIN(adj_date) AS min, MAX(adj_date) AS max FROM adjustments').get(),
-    db.prepare('SELECT MIN(opening_date) AS min, MAX(opening_date) AS max FROM opening_balances').get(),
-  ];
-  const minDates = ranges.map((r) => r.min).filter(Boolean);
-  const maxDates = ranges.map((r) => r.max).filter(Boolean);
+async function resolveDateRange(companyId) {
+  const ranges = await Promise.all([
+    query('SELECT MIN(txn_date) AS min, MAX(txn_date) AS max FROM transactions WHERE company_id = $1', [
+      companyId,
+    ]),
+    query('SELECT MIN(adj_date) AS min, MAX(adj_date) AS max FROM adjustments WHERE company_id = $1', [
+      companyId,
+    ]),
+    query(
+      'SELECT MIN(opening_date) AS min, MAX(opening_date) AS max FROM opening_balances WHERE company_id = $1',
+      [companyId]
+    ),
+  ]);
+  const minDates = ranges.map((r) => r[0]?.min).filter(Boolean);
+  const maxDates = ranges.map((r) => r[0]?.max).filter(Boolean);
   if (minDates.length === 0 || maxDates.length === 0) {
     const today = dayjs().format('YYYY-MM-DD');
     return { start: today, end: today };
@@ -33,26 +39,26 @@ function resolveDateRange(db) {
   return { start, end };
 }
 
-async function buildTransactionsWorkbook(db) {
-  const rows = db
-    .prepare(
-      `SELECT t.txn_date,
-              t.type,
-              t.qty,
-              t.price_per_unit,
-              t.note,
-              t.created_at,
-              u.name AS created_by_name,
-              g.name AS group_name,
-              i.name AS item_name,
-              i.expiry_date
-       FROM transactions t
-       JOIN items i ON i.id = t.item_id
-       JOIN item_groups g ON g.id = i.group_id
-       LEFT JOIN users u ON u.id = t.created_by
-       ORDER BY t.txn_date ASC, t.id ASC`
-    )
-    .all();
+async function buildTransactionsWorkbook(companyId) {
+  const rows = await query(
+    `SELECT t.txn_date,
+            t.type,
+            t.qty,
+            t.price_per_unit,
+            t.note,
+            t.created_at,
+            u.name AS created_by_name,
+            g.name AS group_name,
+            i.name AS item_name,
+            i.expiry_date
+     FROM transactions t
+     JOIN items i ON i.id = t.item_id
+     JOIN item_groups g ON g.id = i.group_id
+     LEFT JOIN users u ON u.id = t.created_by
+     WHERE t.company_id = $1
+     ORDER BY t.txn_date ASC, t.id ASC`,
+    [companyId]
+  );
 
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Transaksi');
@@ -84,8 +90,8 @@ async function buildTransactionsWorkbook(db) {
   return workbook.xlsx.writeBuffer();
 }
 
-async function buildReportWorkbook(db, start, end) {
-  const rows = getReportRows(db, start, end, null);
+async function buildReportWorkbook(companyId, start, end) {
+  const rows = await getReportRows({ query }, companyId, start, end, null);
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Laporan');
   sheet.columns = [
@@ -141,17 +147,16 @@ async function sendCompanyBackup(company) {
     return;
   }
 
-  const db = getCompanyDb(company.db_path);
   try {
-    const primaryEmail = getPrimaryUserEmail(db);
+    const primaryEmail = await getPrimaryUserEmail(company.id);
     if (!primaryEmail) {
       console.log(`Backup skipped for ${company.name}: no user utama email.`);
       return;
     }
 
-    const { start, end } = resolveDateRange(db);
-    const txBuffer = await buildTransactionsWorkbook(db);
-    const reportBuffer = await buildReportWorkbook(db, start, end);
+    const { start, end } = await resolveDateRange(company.id);
+    const txBuffer = await buildTransactionsWorkbook(company.id);
+    const reportBuffer = await buildReportWorkbook(company.id, start, end);
     const today = dayjs().format('YYYY-MM-DD');
     const from = process.env.SMTP_FROM || process.env.SMTP_USER;
 
@@ -161,10 +166,6 @@ async function sendCompanyBackup(company) {
       subject: `Backup ${company.name} - ${today}`,
       text: `Backup otomatis ${company.name}.\nPeriode transaksi & laporan: ${start} s/d ${end}.`,
       attachments: [
-        {
-          filename: `backup-${company.slug}-${today}.db`,
-          path: company.db_path,
-        },
         {
           filename: `transaksi-${start}-sd-${end}.xlsx`,
           content: txBuffer,
@@ -177,12 +178,12 @@ async function sendCompanyBackup(company) {
     });
     console.log(`Backup sent to ${primaryEmail} (${company.name}).`);
   } finally {
-    closeCompanyDb(company.db_path);
+    return;
   }
 }
 
 async function runAutoBackup() {
-  const companies = listCompanies();
+  const companies = await listCompanies();
   if (!companies.length) {
     console.log('Auto backup skipped: no companies.');
     return;

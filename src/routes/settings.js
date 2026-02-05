@@ -4,11 +4,12 @@ const path = require('path');
 const multer = require('multer');
 const { requireCompany, requireAuth, requireRole } = require('../utils/auth');
 const { setFlash } = require('../utils/flash');
-const { dataDir, updateCompanyLogo, getCompanyById } = require('../db/master');
+const { updateCompanyLogo, getCompanyById } = require('../db/master');
+const { runAutoBackup } = require('../utils/backup');
 
 const router = express.Router();
 
-const uploadDir = path.join(dataDir, 'uploads');
+const uploadDir = path.join(__dirname, '..', '..', 'data', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -30,8 +31,8 @@ const upload = multer({
   },
 });
 
-router.get('/settings', requireCompany, requireAuth, requireRole('user'), (req, res) => {
-  const company = getCompanyById(req.company.id);
+router.get('/settings', requireCompany, requireAuth, requireRole('user'), async (req, res) => {
+  const company = await getCompanyById(req.company.id);
   res.render('pages/settings', { company });
 });
 
@@ -41,19 +42,19 @@ router.post(
   requireAuth,
   requireRole('user'),
   upload.single('logo'),
-  (req, res) => {
+  async (req, res) => {
     if (!req.file) {
       setFlash(req, 'error', 'File logo wajib diunggah.');
       return res.redirect('/settings');
     }
     const relativePath = path.join('uploads', req.file.filename);
     try {
-      const company = getCompanyById(req.company.id);
+      const company = await getCompanyById(req.company.id);
       if (company && company.logo_path) {
-        const oldPath = path.join(dataDir, company.logo_path);
+        const oldPath = path.join(__dirname, '..', '..', 'data', company.logo_path);
         if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
-      updateCompanyLogo(req.company.id, relativePath);
+      await updateCompanyLogo(req.company.id, relativePath);
       setFlash(req, 'success', 'Logo berhasil diperbarui.');
     } catch (err) {
       setFlash(req, 'error', 'Gagal menyimpan logo.');
@@ -62,14 +63,28 @@ router.post(
   }
 );
 
-router.get('/backup/company', requireCompany, requireAuth, requireRole('user'), (req, res) => {
-  const company = getCompanyById(req.company.id);
-  if (!company || !company.db_path) {
-    setFlash(req, 'error', 'Database perusahaan tidak ditemukan.');
+router.get('/backup/company', requireCompany, requireAuth, requireRole('user'), async (req, res) => {
+  setFlash(
+    req,
+    'error',
+    'Backup file .db tidak tersedia di Supabase. Gunakan Auto Backup (email) atau export Excel.'
+  );
+  return res.redirect('/settings');
+});
+
+router.post('/backup/test', requireCompany, requireAuth, requireRole('user'), async (req, res) => {
+  const missing = ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS'].filter((key) => !process.env[key]);
+  if (missing.length) {
+    setFlash(req, 'error', 'SMTP belum lengkap. Isi SMTP_HOST, SMTP_USER, SMTP_PASS di Render.');
     return res.redirect('/settings');
   }
-  const filename = `backup-${company.slug}-${new Date().toISOString().slice(0, 10)}.db`;
-  res.download(company.db_path, filename);
+  try {
+    await runAutoBackup();
+    setFlash(req, 'success', 'Backup otomatis sedang dikirim. Cek email user utama.');
+  } catch (err) {
+    setFlash(req, 'error', 'Gagal menjalankan backup otomatis.');
+  }
+  return res.redirect('/settings');
 });
 
 module.exports = router;

@@ -11,7 +11,7 @@
     <div class="company-card">
       <div>
         <div class="company-card-name"><%= company.name %></div>
-        <div class="company-card-sub">DB: <%= company.db_path %></div>
+        <div class="company-card-sub">Supabase</div>
       </div>
       <a class="btn primary" href="/login?company=<%= company.id %>">Masuk</a>
     </div>
@@ -56,28 +56,6 @@
       </label>
     <% } %>
     <button class="btn primary" type="submit">Buat Perusahaan</button>
-  </form>
-</div>
-
-<div class="auth-section">
-  <h2>Koneksikan Database Existing</h2>
-  <form method="post" action="/companies" class="form-grid">
-    <input type="hidden" name="mode" value="connect" />
-    <label>
-      Nama Perusahaan
-      <input name="name" placeholder="PT Lama" required />
-    </label>
-    <label>
-      Path Database (.db)
-      <input name="db_path" placeholder="/path/to/company.db" required />
-    </label>
-    <% if (requireSetupKey) { %>
-      <label>
-        Setup Key
-        <input name="setup_key" type="password" required />
-      </label>
-    <% } %>
-    <button class="btn ghost" type="submit">Hubungkan</button>
   </form>
 </div>
 

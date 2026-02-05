@@ -79,8 +79,8 @@
                     <td><%= item.adj_qty %></td>
                     <td><%= item.closing %></td>
                     <% if (showPrice) { %>
-                      <td><%= item.price_per_unit ?? '-' %></td>
-                      <td><%= item.stock_value ?? '-' %></td>
+                      <td><%= formatPrice(item.price_per_unit) %></td>
+                      <td><%= formatPrice(item.stock_value) %></td>
                     <% } %>
                   </tr>
                 <% }) %>

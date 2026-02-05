@@ -6,77 +6,84 @@ const { divisionAccess, buildDivisionFilter } = require('../utils/division');
 
 const router = express.Router();
 
-router.get('/', requireCompany, requireAuth, divisionAccess, (req, res) => {
+router.get('/', requireCompany, requireAuth, divisionAccess, async (req, res) => {
   const db = req.db;
+  const companyId = req.company.id;
   const today = dayjs().format('YYYY-MM-DD');
   const divisionIds = req.divisionIds;
-  const filter = buildDivisionFilter(divisionIds, 'd.id');
+  const filter = buildDivisionFilter(divisionIds, 'd.id', 2);
 
-  const totalItems = db
-    .prepare(
+  const totalItems = (
+    await db.query(
       `SELECT COUNT(*) as count
        FROM items i
        JOIN item_groups g ON g.id = i.group_id
        JOIN divisions d ON d.id = g.division_id
-       WHERE 1=1 ${filter.clause}`
+       WHERE i.company_id = $1 ${filter.clause}`,
+      [companyId, ...filter.params]
     )
-    .get(...filter.params).count;
-  const totalGroups = db
-    .prepare(
+  )[0]?.count;
+  const totalGroups = (
+    await db.query(
       `SELECT COUNT(*) as count
        FROM item_groups g
        JOIN divisions d ON d.id = g.division_id
-       WHERE 1=1 ${filter.clause}`
+       WHERE g.company_id = $1 ${filter.clause}`,
+      [companyId, ...filter.params]
     )
-    .get(...filter.params).count;
-  const totalUsers = db.prepare('SELECT COUNT(*) as count FROM users').get().count;
+  )[0]?.count;
+  const totalUsers = (
+    await db.query('SELECT COUNT(*) as count FROM users WHERE company_id = $1', [companyId])
+  )[0]?.count;
 
-  const stockRows = getCurrentStockRows(db, divisionIds);
+  const stockRows = await getCurrentStockRows(db, companyId, divisionIds);
   const totalStock = stockRows.reduce((acc, row) => acc + (row.stock || 0), 0);
   const lowStock = stockRows.filter((row) => row.stock <= row.min_stock).slice(0, 6);
 
-  const inToday = db
-    .prepare(
+  const filterTxn = buildDivisionFilter(divisionIds, 'd.id', 3);
+  const inToday = (
+    await db.query(
       `SELECT COALESCE(SUM(t.qty),0) as qty
        FROM transactions t
        JOIN items i ON i.id = t.item_id
        JOIN item_groups g ON g.id = i.group_id
        JOIN divisions d ON d.id = g.division_id
-       WHERE t.type='IN' AND t.txn_date = ? ${filter.clause}`
+       WHERE t.company_id = $1 AND t.type='IN' AND t.txn_date = $2 ${filterTxn.clause}`,
+      [companyId, today, ...filterTxn.params]
     )
-    .get(today, ...filter.params).qty;
-  const outToday = db
-    .prepare(
+  )[0]?.qty;
+  const outToday = (
+    await db.query(
       `SELECT COALESCE(SUM(t.qty),0) as qty
        FROM transactions t
        JOIN items i ON i.id = t.item_id
        JOIN item_groups g ON g.id = i.group_id
        JOIN divisions d ON d.id = g.division_id
-       WHERE t.type='OUT' AND t.txn_date = ? ${filter.clause}`
+       WHERE t.company_id = $1 AND t.type='OUT' AND t.txn_date = $2 ${filterTxn.clause}`,
+      [companyId, today, ...filterTxn.params]
     )
-    .get(today, ...filter.params).qty;
+  )[0]?.qty;
 
-  const recentTransactions = db
-    .prepare(
-      `SELECT t.id, t.type, t.qty, t.price_per_unit, t.txn_date, i.name AS item_name
-       FROM transactions t
-       JOIN items i ON i.id = t.item_id
-       JOIN item_groups g ON g.id = i.group_id
-       JOIN divisions d ON d.id = g.division_id
-       WHERE 1=1 ${filter.clause}
-       ORDER BY t.txn_date DESC, t.id DESC
-       LIMIT 8`
-    )
-    .all(...filter.params);
+  const recentTransactions = await db.query(
+    `SELECT t.id, t.type, t.qty, t.price_per_unit, t.txn_date, i.name AS item_name
+     FROM transactions t
+     JOIN items i ON i.id = t.item_id
+     JOIN item_groups g ON g.id = i.group_id
+     JOIN divisions d ON d.id = g.division_id
+     WHERE t.company_id = $1 ${filter.clause}
+     ORDER BY t.txn_date DESC, t.id DESC
+     LIMIT 8`,
+    [companyId, ...filter.params]
+  );
 
   res.render('pages/dashboard', {
     metrics: {
-      totalItems,
-      totalGroups,
-      totalUsers,
+      totalItems: Number(totalItems || 0),
+      totalGroups: Number(totalGroups || 0),
+      totalUsers: Number(totalUsers || 0),
       totalStock,
-      inToday,
-      outToday,
+      inToday: Number(inToday || 0),
+      outToday: Number(outToday || 0),
     },
     lowStock,
     recentTransactions,
