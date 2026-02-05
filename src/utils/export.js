@@ -1,7 +1,5 @@
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
-const fs = require('fs');
-const path = require('path');
 
 function toCsvValue(value) {
   if (value === null || value === undefined) return '';
@@ -51,24 +49,6 @@ async function exportExcel(res, filename, columns, rows) {
   res.end();
 }
 
-function resolveLogoBuffer(options) {
-  if (options.logoData && typeof options.logoData === 'string' && options.logoData.startsWith('data:')) {
-    const base64 = options.logoData.split(',')[1] || '';
-    if (!base64) return null;
-    return Buffer.from(base64, 'base64');
-  }
-  if (options.logoPath) {
-    const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
-    const fullPath = options.logoPath.startsWith('/')
-      ? options.logoPath
-      : path.join(dataDir, options.logoPath.replace(/^\/?/, ''));
-    if (fs.existsSync(fullPath)) {
-      return fs.readFileSync(fullPath);
-    }
-  }
-  return null;
-}
-
 function exportPdf(res, filename, title, columns, rows, options = {}) {
   const margin = options.margin ?? 30;
   const doc = new PDFDocument({
@@ -88,21 +68,7 @@ function exportPdf(res, filename, title, columns, rows, options = {}) {
   const colPadding = options.colPadding ?? 4;
   const metaFontSize = options.metaFontSize ?? 10;
 
-  const logoBuffer = resolveLogoBuffer(options);
-  const headerStartY = doc.y;
-  const logoSize = options.logoSize ?? 40;
-  if (logoBuffer) {
-    try {
-      doc.image(logoBuffer, margin, headerStartY, { width: logoSize, height: logoSize });
-    } catch (err) {
-      // ignore logo errors
-    }
-  }
-
   doc.fontSize(titleFontSize).text(title, { align: 'center' });
-  if (logoBuffer && doc.y < headerStartY + logoSize + 6) {
-    doc.y = headerStartY + logoSize + 6;
-  }
   doc.moveDown(0.4);
 
   if (Array.isArray(options.headerLines) && options.headerLines.length > 0) {

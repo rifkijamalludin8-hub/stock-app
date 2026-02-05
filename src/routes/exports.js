@@ -216,8 +216,6 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
       bodyFontSize: 7.5,
       headerFontSize: 7.5,
       colPadding: 3,
-      logoData: req.company ? req.company.logo_data : null,
-      logoPath: req.company ? req.company.logo_path : null,
       headerLines: [
         `Perusahaan: ${req.company ? req.company.name : '-'}`,
         `Periode: ${start} s/d ${end}`,

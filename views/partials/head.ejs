@@ -13,13 +13,7 @@
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
-        <div class="brand-mark">
-          <% if (company && (company.logo_data || company.logo_path)) { %>
-            <img src="<%= company.logo_data ? company.logo_data : '/' + company.logo_path %>" alt="Logo" />
-          <% } else { %>
-            STK
-          <% } %>
-        </div>
+        <div class="brand-mark">STK</div>
         <div>
           <div class="brand-name">Stock Barang</div>
           <div class="brand-sub">All device ready</div>

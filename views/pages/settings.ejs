@@ -5,23 +5,10 @@
     <div class="card-header">
       <div>
         <h3>Logo Perusahaan</h3>
-        <p>Unggah logo baru (PNG/JPG/WEBP, max 2MB).</p>
+        <p>Fitur logo dimatikan untuk menghemat memori server.</p>
       </div>
     </div>
-    <div class="logo-preview">
-      <% if (company.logo_data || company.logo_path) { %>
-        <img src="<%= company.logo_data ? company.logo_data : '/' + company.logo_path %>" alt="Logo" />
-      <% } else { %>
-        <div class="empty-state">Belum ada logo</div>
-      <% } %>
-    </div>
-    <form method="post" action="/settings/logo" enctype="multipart/form-data" class="form-stack">
-      <label>
-        File Logo
-        <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" required />
-      </label>
-      <button class="btn primary" type="submit">Simpan Logo</button>
-    </form>
+    <div class="empty-state">Logo dinonaktifkan.</div>
   </div>
 
   <div class="card">
