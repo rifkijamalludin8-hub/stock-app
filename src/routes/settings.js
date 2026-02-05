@@ -5,7 +5,7 @@ const multer = require('multer');
 const { requireCompany, requireAuth, requireRole } = require('../utils/auth');
 const { setFlash } = require('../utils/flash');
 const { updateCompanyLogo, getCompanyById } = require('../db/master');
-const { runAutoBackup } = require('../utils/backup');
+const { runAutoBackup, buildDatabaseBackupWorkbook } = require('../utils/backup');
 
 const router = express.Router();
 
@@ -54,7 +54,9 @@ router.post(
         const oldPath = path.join(__dirname, '..', '..', 'data', company.logo_path);
         if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
       }
-      await updateCompanyLogo(req.company.id, relativePath);
+      const buffer = fs.readFileSync(req.file.path);
+      const dataUri = `data:${req.file.mimetype};base64,${buffer.toString('base64')}`;
+      await updateCompanyLogo(req.company.id, relativePath, dataUri);
       setFlash(req, 'success', 'Logo berhasil diperbarui.');
     } catch (err) {
       setFlash(req, 'error', 'Gagal menyimpan logo.');
@@ -64,12 +66,19 @@ router.post(
 );
 
 router.get('/backup/company', requireCompany, requireAuth, requireRole('user'), async (req, res) => {
-  setFlash(
-    req,
-    'error',
-    'Backup file .db tidak tersedia di Supabase. Gunakan Auto Backup (email) atau export Excel.'
-  );
-  return res.redirect('/settings');
+  try {
+    const buffer = await buildDatabaseBackupWorkbook(req.company.id);
+    const filename = `backup-${req.company.slug || req.company.id}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(buffer);
+  } catch (err) {
+    setFlash(req, 'error', 'Gagal membuat backup Excel.');
+    return res.redirect('/settings');
+  }
 });
 
 router.post('/backup/test', requireCompany, requireAuth, requireRole('user'), async (req, res) => {

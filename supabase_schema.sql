@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS companies (
   name TEXT NOT NULL,
   slug TEXT NOT NULL UNIQUE,
   logo_path TEXT,
+  logo_data TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

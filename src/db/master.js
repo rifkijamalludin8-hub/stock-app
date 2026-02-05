@@ -14,6 +14,20 @@ async function getCompanyBySlug(slug) {
   return rows[0] || null;
 }
 
+let hasLogoDataColumnCache = null;
+
+async function hasLogoDataColumn() {
+  if (hasLogoDataColumnCache !== null) return hasLogoDataColumnCache;
+  const rows = await query(
+    `SELECT 1
+     FROM information_schema.columns
+     WHERE table_name = 'companies' AND column_name = 'logo_data'
+     LIMIT 1`
+  );
+  hasLogoDataColumnCache = rows.length > 0;
+  return hasLogoDataColumnCache;
+}
+
 async function createCompany({ name, slug }) {
   const rows = await query(
     'INSERT INTO companies (name, slug, logo_path) VALUES ($1, $2, $3) RETURNING *',
@@ -22,7 +36,15 @@ async function createCompany({ name, slug }) {
   return rows[0];
 }
 
-async function updateCompanyLogo(id, logoPath) {
+async function updateCompanyLogo(id, logoPath, logoData = null) {
+  if (await hasLogoDataColumn()) {
+    await query('UPDATE companies SET logo_path = $1, logo_data = $2 WHERE id = $3', [
+      logoPath,
+      logoData,
+      id,
+    ]);
+    return;
+  }
   await query('UPDATE companies SET logo_path = $1 WHERE id = $2', [logoPath, id]);
 }
 

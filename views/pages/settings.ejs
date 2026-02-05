@@ -9,8 +9,8 @@
       </div>
     </div>
     <div class="logo-preview">
-      <% if (company.logo_path) { %>
-        <img src="/<%= company.logo_path %>" alt="Logo" />
+      <% if (company.logo_data || company.logo_path) { %>
+        <img src="<%= company.logo_data ? company.logo_data : '/' + company.logo_path %>" alt="Logo" />
       <% } else { %>
         <div class="empty-state">Belum ada logo</div>
       <% } %>
@@ -28,11 +28,11 @@
     <div class="card-header">
       <div>
         <h3>Backup Database</h3>
-        <p>Supabase tidak menyediakan file .db langsung.</p>
+        <p>Unduh backup Excel lengkap (data master & transaksi).</p>
       </div>
     </div>
-    <p class="muted">Gunakan Auto Backup (email) atau export Excel untuk arsip data.</p>
-    <a class="btn ghost" href="/backup/company">Info Backup</a>
+    <p class="muted">File berisi Divisi, Jenis Barang, Item, Stock Awal, Transaksi, Adjustment, dan User.</p>
+    <a class="btn ghost" href="/backup/company">Download Backup Excel</a>
   </div>
 
   <div class="card">
@@ -43,7 +43,7 @@
       </div>
     </div>
     <p class="muted">
-      Sistem akan mengirim 3 file: Database (.db), Excel Transaksi, dan Excel Laporan.
+      Sistem akan mengirim 3 file: Backup Excel, Excel Transaksi, dan Excel Laporan.
       Pastikan SMTP sudah diisi di Render.
     </p>
     <form method="post" action="/backup/test">
