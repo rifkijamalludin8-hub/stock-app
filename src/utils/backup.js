@@ -1,11 +1,35 @@
 const dayjs = require('dayjs');
-const ExcelJS = require('exceljs');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
 const { listCompanies } = require('../db/master');
 const { query } = require('../db/pg');
 const { getReportRows } = require('./report');
 const { formatDateTime } = require('./format');
+
+function toCsvValue(value) {
+  if (value === null || value === undefined) return '';
+  const stringValue = String(value);
+  if (stringValue.includes(',') || stringValue.includes('"') || stringValue.includes('\n')) {
+    return '"' + stringValue.replace(/"/g, '""') + '"';
+  }
+  return stringValue;
+}
+
+function buildCsv(columns, rows) {
+  const header = columns.map((col) => toCsvValue(col.header)).join(',');
+  const body = rows
+    .map((row) =>
+      columns
+        .map((col) => {
+          const raw = row[col.key];
+          const value = col.format ? col.format(raw) : raw;
+          return toCsvValue(value);
+        })
+        .join(',')
+    )
+    .join('\n');
+  return header + '\n' + body;
+}
 
 async function getPrimaryUserEmail(companyId) {
   const rows = await query(
@@ -39,7 +63,7 @@ async function resolveDateRange(companyId) {
   return { start, end };
 }
 
-async function buildTransactionsWorkbook(companyId) {
+async function buildTransactionsCsv(companyId) {
   const rows = await query(
     `SELECT t.txn_date,
             t.type,
@@ -60,87 +84,73 @@ async function buildTransactionsWorkbook(companyId) {
     [companyId]
   );
 
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Transaksi');
-  sheet.columns = [
-    { header: 'Tanggal', key: 'txn_date', width: 14 },
-    { header: 'Tipe', key: 'type', width: 8 },
-    { header: 'Item', key: 'item_label', width: 40 },
-    { header: 'Qty', key: 'qty', width: 12 },
-    { header: 'Harga/Unit', key: 'price_per_unit', width: 14, style: { numFmt: '#,##0.00' } },
-    { header: 'Catatan', key: 'note', width: 30 },
-    { header: 'Dibuat Oleh', key: 'created_by_name', width: 20 },
-    { header: 'Dibuat', key: 'created_at', width: 20 },
+  const columns = [
+    { header: 'Tanggal', key: 'txn_date' },
+    { header: 'Tipe', key: 'type' },
+    { header: 'Item', key: 'item_label' },
+    { header: 'Qty', key: 'qty' },
+    { header: 'Harga/Unit', key: 'price_per_unit' },
+    { header: 'Catatan', key: 'note' },
+    { header: 'Dibuat Oleh', key: 'created_by_name' },
+    { header: 'Dibuat', key: 'created_at', format: formatDateTime },
   ];
-
-  rows.forEach((row) => {
-    const itemLabel = `${row.group_name} - ${row.item_name} - ${row.expiry_date || '-'}`;
-    sheet.addRow({
-      txn_date: row.txn_date,
-      type: row.type,
-      item_label: itemLabel,
-      qty: row.qty,
-      price_per_unit: row.price_per_unit ?? null,
-      note: row.note || '',
-      created_by_name: row.created_by_name || '',
-      created_at: formatDateTime(row.created_at),
-    });
-  });
-  sheet.getRow(1).font = { bold: true };
-  return workbook.xlsx.writeBuffer();
+  const data = rows.map((row) => ({
+    txn_date: row.txn_date,
+    type: row.type,
+    item_label: `${row.group_name} - ${row.item_name} - ${row.expiry_date || '-'}`,
+    qty: row.qty,
+    price_per_unit: row.price_per_unit ?? null,
+    note: row.note || '',
+    created_by_name: row.created_by_name || '',
+    created_at: row.created_at,
+  }));
+  return buildCsv(columns, data);
 }
 
-async function buildReportWorkbook(companyId, start, end) {
+async function buildReportCsv(companyId, start, end) {
   const rows = await getReportRows({ query }, companyId, start, end, null);
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Laporan');
-  sheet.columns = [
-    { header: 'Divisi', key: 'division_name', width: 22 },
-    { header: 'Kelompok', key: 'group_name', width: 22 },
-    { header: 'Item', key: 'item_name', width: 28 },
-    { header: 'Expired', key: 'expiry_date', width: 14 },
-    { header: 'Saldo Awal', key: 'opening', width: 12 },
-    { header: 'Masuk', key: 'in_qty', width: 10 },
-    { header: 'Keluar', key: 'out_qty', width: 10 },
-    { header: 'Adjustment', key: 'adj_qty', width: 12 },
-    { header: 'Saldo Akhir', key: 'closing', width: 12 },
-    { header: 'Harga/Unit', key: 'price_per_unit', width: 14, style: { numFmt: '#,##0.00' } },
-    { header: 'Nilai Akhir', key: 'stock_value', width: 14, style: { numFmt: '#,##0.00' } },
+  const columns = [
+    { header: 'Divisi', key: 'division_name' },
+    { header: 'Kelompok', key: 'group_name' },
+    { header: 'Item', key: 'item_name' },
+    { header: 'Expired', key: 'expiry_date' },
+    { header: 'Saldo Awal', key: 'opening' },
+    { header: 'Masuk', key: 'in_qty' },
+    { header: 'Keluar', key: 'out_qty' },
+    { header: 'Adjustment', key: 'adj_qty' },
+    { header: 'Saldo Akhir', key: 'closing' },
+    { header: 'Harga/Unit', key: 'price_per_unit' },
+    { header: 'Nilai Akhir', key: 'stock_value' },
   ];
-  rows.forEach((row) => {
-    sheet.addRow({
-      division_name: row.division_name,
-      group_name: row.group_name,
-      item_name: row.item_name,
-      expiry_date: row.expiry_date || '-',
-      opening: row.opening,
-      in_qty: row.in_qty,
-      out_qty: row.out_qty,
-      adj_qty: row.adj_qty,
-      closing: row.closing,
-      price_per_unit: row.price_per_unit ?? null,
-      stock_value: row.stock_value ?? null,
-    });
-  });
-  sheet.getRow(1).font = { bold: true };
-  return workbook.xlsx.writeBuffer();
+  const data = rows.map((row) => ({
+    division_name: row.division_name,
+    group_name: row.group_name,
+    item_name: row.item_name,
+    expiry_date: row.expiry_date || '-',
+    opening: row.opening,
+    in_qty: row.in_qty,
+    out_qty: row.out_qty,
+    adj_qty: row.adj_qty,
+    closing: row.closing,
+    price_per_unit: row.price_per_unit ?? null,
+    stock_value: row.stock_value ?? null,
+  }));
+  return buildCsv(columns, data);
 }
 
-async function buildDatabaseBackupWorkbook(companyId) {
-  const workbook = new ExcelJS.Workbook();
-
+async function buildDatabaseBackupCsv(companyId) {
   const divisions = await query(
     'SELECT id, name, description FROM divisions WHERE company_id = $1 ORDER BY name ASC',
     [companyId]
   );
-  const divisionsSheet = workbook.addWorksheet('Divisi');
-  divisionsSheet.columns = [
-    { header: 'ID', key: 'id', width: 10 },
-    { header: 'Nama', key: 'name', width: 24 },
-    { header: 'Deskripsi', key: 'description', width: 40 },
-  ];
-  divisions.forEach((row) => divisionsSheet.addRow(row));
-  divisionsSheet.getRow(1).font = { bold: true };
+  const divisionsCsv = buildCsv(
+    [
+      { header: 'ID', key: 'id' },
+      { header: 'Nama', key: 'name' },
+      { header: 'Deskripsi', key: 'description' },
+    ],
+    divisions
+  );
 
   const groups = await query(
     `SELECT g.id, g.name, g.description, d.name AS division_name
@@ -150,15 +160,15 @@ async function buildDatabaseBackupWorkbook(companyId) {
      ORDER BY d.name ASC, g.name ASC`,
     [companyId]
   );
-  const groupsSheet = workbook.addWorksheet('Jenis Barang');
-  groupsSheet.columns = [
-    { header: 'ID', key: 'id', width: 10 },
-    { header: 'Divisi', key: 'division_name', width: 22 },
-    { header: 'Nama', key: 'name', width: 26 },
-    { header: 'Deskripsi', key: 'description', width: 40 },
-  ];
-  groups.forEach((row) => groupsSheet.addRow(row));
-  groupsSheet.getRow(1).font = { bold: true };
+  const groupsCsv = buildCsv(
+    [
+      { header: 'ID', key: 'id' },
+      { header: 'Divisi', key: 'division_name' },
+      { header: 'Nama', key: 'name' },
+      { header: 'Deskripsi', key: 'description' },
+    ],
+    groups
+  );
 
   const items = await query(
     `SELECT i.id,
@@ -176,19 +186,19 @@ async function buildDatabaseBackupWorkbook(companyId) {
      ORDER BY d.name ASC, g.name ASC, i.name ASC`,
     [companyId]
   );
-  const itemsSheet = workbook.addWorksheet('Item');
-  itemsSheet.columns = [
-    { header: 'ID', key: 'id', width: 10 },
-    { header: 'Divisi', key: 'division_name', width: 22 },
-    { header: 'Jenis Barang', key: 'group_name', width: 22 },
-    { header: 'Nama Item', key: 'name', width: 26 },
-    { header: 'SKU', key: 'sku', width: 14 },
-    { header: 'Satuan', key: 'unit', width: 10 },
-    { header: 'Expired', key: 'expiry_date', width: 14 },
-    { header: 'Min Stock', key: 'min_stock', width: 12 },
-  ];
-  items.forEach((row) => itemsSheet.addRow(row));
-  itemsSheet.getRow(1).font = { bold: true };
+  const itemsCsv = buildCsv(
+    [
+      { header: 'ID', key: 'id' },
+      { header: 'Divisi', key: 'division_name' },
+      { header: 'Jenis Barang', key: 'group_name' },
+      { header: 'Nama Item', key: 'name' },
+      { header: 'SKU', key: 'sku' },
+      { header: 'Satuan', key: 'unit' },
+      { header: 'Expired', key: 'expiry_date' },
+      { header: 'Min Stock', key: 'min_stock' },
+    ],
+    items
+  );
 
   const users = await query(
     `SELECT id, name, email, role, created_at
@@ -197,16 +207,16 @@ async function buildDatabaseBackupWorkbook(companyId) {
      ORDER BY name ASC`,
     [companyId]
   );
-  const usersSheet = workbook.addWorksheet('User');
-  usersSheet.columns = [
-    { header: 'ID', key: 'id', width: 10 },
-    { header: 'Nama', key: 'name', width: 22 },
-    { header: 'Email', key: 'email', width: 26 },
-    { header: 'Role', key: 'role', width: 12 },
-    { header: 'Dibuat', key: 'created_at', width: 20 },
-  ];
-  users.forEach((row) => usersSheet.addRow(row));
-  usersSheet.getRow(1).font = { bold: true };
+  const usersCsv = buildCsv(
+    [
+      { header: 'ID', key: 'id' },
+      { header: 'Nama', key: 'name' },
+      { header: 'Email', key: 'email' },
+      { header: 'Role', key: 'role' },
+      { header: 'Dibuat', key: 'created_at' },
+    ],
+    users
+  );
 
   const opening = await query(
     `SELECT ob.opening_date,
@@ -225,26 +235,24 @@ async function buildDatabaseBackupWorkbook(companyId) {
      ORDER BY ob.opening_date ASC, ob.id ASC`,
     [companyId]
   );
-  const openingSheet = workbook.addWorksheet('Stock Awal');
-  openingSheet.columns = [
-    { header: 'Tanggal', key: 'opening_date', width: 14 },
-    { header: 'Item', key: 'item_label', width: 36 },
-    { header: 'Qty', key: 'qty', width: 12 },
-    { header: 'Harga/Unit', key: 'price_per_unit', width: 14, style: { numFmt: '#,##0.00' } },
-    { header: 'Catatan', key: 'note', width: 30 },
-    { header: 'Dibuat Oleh', key: 'created_by_name', width: 20 },
-  ];
-  opening.forEach((row) => {
-    openingSheet.addRow({
+  const openingCsv = buildCsv(
+    [
+      { header: 'Tanggal', key: 'opening_date' },
+      { header: 'Item', key: 'item_label' },
+      { header: 'Qty', key: 'qty' },
+      { header: 'Harga/Unit', key: 'price_per_unit' },
+      { header: 'Catatan', key: 'note' },
+      { header: 'Dibuat Oleh', key: 'created_by_name' },
+    ],
+    opening.map((row) => ({
       opening_date: row.opening_date,
       item_label: `${row.group_name} - ${row.item_name} - ${row.expiry_date || '-'}`,
       qty: row.qty,
       price_per_unit: row.price_per_unit ?? null,
       note: row.note || '',
       created_by_name: row.created_by_name || '',
-    });
-  });
-  openingSheet.getRow(1).font = { bold: true };
+    }))
+  );
 
   const transactions = await query(
     `SELECT t.txn_date,
@@ -265,19 +273,18 @@ async function buildDatabaseBackupWorkbook(companyId) {
      ORDER BY t.txn_date ASC, t.id ASC`,
     [companyId]
   );
-  const txSheet = workbook.addWorksheet('Transaksi');
-  txSheet.columns = [
-    { header: 'Tanggal', key: 'txn_date', width: 14 },
-    { header: 'Tipe', key: 'type', width: 8 },
-    { header: 'Item', key: 'item_label', width: 40 },
-    { header: 'Qty', key: 'qty', width: 12 },
-    { header: 'Harga/Unit', key: 'price_per_unit', width: 14, style: { numFmt: '#,##0.00' } },
-    { header: 'Catatan', key: 'note', width: 30 },
-    { header: 'Dibuat Oleh', key: 'created_by_name', width: 20 },
-    { header: 'Dibuat', key: 'created_at', width: 20 },
-  ];
-  transactions.forEach((row) => {
-    txSheet.addRow({
+  const transactionsCsv = buildCsv(
+    [
+      { header: 'Tanggal', key: 'txn_date' },
+      { header: 'Tipe', key: 'type' },
+      { header: 'Item', key: 'item_label' },
+      { header: 'Qty', key: 'qty' },
+      { header: 'Harga/Unit', key: 'price_per_unit' },
+      { header: 'Catatan', key: 'note' },
+      { header: 'Dibuat Oleh', key: 'created_by_name' },
+      { header: 'Dibuat', key: 'created_at', format: formatDateTime },
+    ],
+    transactions.map((row) => ({
       txn_date: row.txn_date,
       type: row.type,
       item_label: `${row.group_name} - ${row.item_name} - ${row.expiry_date || '-'}`,
@@ -285,10 +292,9 @@ async function buildDatabaseBackupWorkbook(companyId) {
       price_per_unit: row.price_per_unit ?? null,
       note: row.note || '',
       created_by_name: row.created_by_name || '',
-      created_at: formatDateTime(row.created_at),
-    });
-  });
-  txSheet.getRow(1).font = { bold: true };
+      created_at: row.created_at,
+    }))
+  );
 
   const adjustments = await query(
     `SELECT a.adj_date,
@@ -307,28 +313,38 @@ async function buildDatabaseBackupWorkbook(companyId) {
      ORDER BY a.adj_date ASC, a.id ASC`,
     [companyId]
   );
-  const adjSheet = workbook.addWorksheet('Adjustment');
-  adjSheet.columns = [
-    { header: 'Tanggal', key: 'adj_date', width: 14 },
-    { header: 'Item', key: 'item_label', width: 40 },
-    { header: 'Qty Delta', key: 'qty_delta', width: 12 },
-    { header: 'Catatan', key: 'note', width: 30 },
-    { header: 'Dibuat Oleh', key: 'created_by_name', width: 20 },
-    { header: 'Dibuat', key: 'created_at', width: 20 },
-  ];
-  adjustments.forEach((row) => {
-    adjSheet.addRow({
+  const adjustmentsCsv = buildCsv(
+    [
+      { header: 'Tanggal', key: 'adj_date' },
+      { header: 'Item', key: 'item_label' },
+      { header: 'Qty Delta', key: 'qty_delta' },
+      { header: 'Catatan', key: 'note' },
+      { header: 'Dibuat Oleh', key: 'created_by_name' },
+      { header: 'Dibuat', key: 'created_at', format: formatDateTime },
+    ],
+    adjustments.map((row) => ({
       adj_date: row.adj_date,
       item_label: `${row.group_name} - ${row.item_name} - ${row.expiry_date || '-'}`,
       qty_delta: row.qty_delta,
       note: row.note || '',
       created_by_name: row.created_by_name || '',
-      created_at: formatDateTime(row.created_at),
-    });
-  });
-  adjSheet.getRow(1).font = { bold: true };
+      created_at: row.created_at,
+    }))
+  );
 
-  return workbook.xlsx.writeBuffer();
+  const sections = [
+    ['Divisi', divisionsCsv],
+    ['Jenis Barang', groupsCsv],
+    ['Item', itemsCsv],
+    ['User', usersCsv],
+    ['Stock Awal', openingCsv],
+    ['Transaksi', transactionsCsv],
+    ['Adjustment', adjustmentsCsv],
+  ];
+
+  return sections
+    .map(([title, csv]) => `# ${title}\n${csv}`)
+    .join('\n\n');
 }
 
 function createTransporter() {
@@ -360,9 +376,9 @@ async function sendCompanyBackup(company) {
     }
 
     const { start, end } = await resolveDateRange(company.id);
-    const txBuffer = await buildTransactionsWorkbook(company.id);
-    const reportBuffer = await buildReportWorkbook(company.id, start, end);
-    const dbBuffer = await buildDatabaseBackupWorkbook(company.id);
+    const txCsv = await buildTransactionsCsv(company.id);
+    const reportCsv = await buildReportCsv(company.id, start, end);
+    const dbCsv = await buildDatabaseBackupCsv(company.id);
     const today = dayjs().format('YYYY-MM-DD');
     const from = process.env.SMTP_FROM || process.env.SMTP_USER;
 
@@ -373,16 +389,16 @@ async function sendCompanyBackup(company) {
       text: `Backup otomatis ${company.name}.\nPeriode transaksi & laporan: ${start} s/d ${end}.`,
       attachments: [
         {
-          filename: `backup-${company.slug}-${today}.xlsx`,
-          content: dbBuffer,
+          filename: `backup-${company.slug}-${today}.csv`,
+          content: dbCsv,
         },
         {
-          filename: `transaksi-${start}-sd-${end}.xlsx`,
-          content: txBuffer,
+          filename: `transaksi-${start}-sd-${end}.csv`,
+          content: txCsv,
         },
         {
-          filename: `laporan-${start}-sd-${end}.xlsx`,
-          content: reportBuffer,
+          filename: `laporan-${start}-sd-${end}.csv`,
+          content: reportCsv,
         },
       ],
     });
@@ -426,4 +442,4 @@ function scheduleAutoBackup() {
   console.log(`Auto backup scheduled: ${cronExpr} (${timezone})`);
 }
 
-module.exports = { scheduleAutoBackup, runAutoBackup, buildDatabaseBackupWorkbook };
+module.exports = { scheduleAutoBackup, runAutoBackup, buildDatabaseBackupCsv };
