@@ -1,8 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
-const { dataDir } = require('../db/master');
-
+const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', '..', 'data');
 const importDir = path.join(dataDir, 'uploads', 'imports');
 if (!fs.existsSync(importDir)) fs.mkdirSync(importDir, { recursive: true });
 
