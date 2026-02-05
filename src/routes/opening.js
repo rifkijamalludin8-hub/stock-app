@@ -125,7 +125,7 @@ router.post(
   requireAuth,
   requireRole('user'),
   divisionAccess,
-  (req, res) => {
+  async (req, res) => {
     const db = req.db;
     const companyId = req.company.id;
     const id = Number(req.params.id);
@@ -180,7 +180,7 @@ router.post(
   requireAuth,
   requireRole('user'),
   divisionAccess,
-  (req, res) => {
+  async (req, res) => {
     const db = req.db;
     const companyId = req.company.id;
     const id = Number(req.params.id);
