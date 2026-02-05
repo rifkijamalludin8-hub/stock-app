@@ -1,10 +1,14 @@
 const express = require('express');
+const fs = require('fs');
 const { requireCompany, requireAuth } = require('../utils/auth');
 const { setFlash } = require('../utils/flash');
 const { getCurrentStockMap } = require('../utils/stock');
 const { divisionAccess, buildDivisionFilter } = require('../utils/division');
+const { createExcelUpload } = require('../utils/excel-upload');
+const { readExcelRows, normalizeText, parseDate } = require('../utils/import-helpers');
 
 const router = express.Router();
+const excelUpload = createExcelUpload('items');
 
 router.get('/items', requireCompany, requireAuth, divisionAccess, async (req, res) => {
   const db = req.db;
@@ -206,6 +210,181 @@ router.post('/items/:id/delete', requireCompany, requireAuth, divisionAccess, as
     setFlash(req, 'error', 'Item tidak bisa dihapus karena ada transaksi.');
   }
   res.redirect('/items');
+});
+
+router.post('/items/import', requireCompany, requireAuth, divisionAccess, (req, res) => {
+  excelUpload.single('file')(req, res, async (err) => {
+    if (err) {
+      setFlash(req, 'error', err.message || 'Upload gagal.');
+      return res.redirect('/items');
+    }
+    if (!req.file) {
+      setFlash(req, 'error', 'File Excel wajib diunggah.');
+      return res.redirect('/items');
+    }
+
+    const db = req.db;
+    const companyId = req.company.id;
+    try {
+      const { rows, headers } = await readExcelRows(req.file.path);
+      if (rows.length === 0) {
+        setFlash(req, 'error', 'File Excel kosong atau format tidak dikenali.');
+        return res.redirect('/items');
+      }
+
+      const hasItem = headers.includes('item_name');
+      const hasGroup = headers.includes('group_name') || headers.includes('group_id');
+      if (!hasItem || !hasGroup) {
+        setFlash(req, 'error', 'Kolom Nama Item dan Jenis Barang wajib ada.');
+        return res.redirect('/items');
+      }
+
+      const groups = await db.query(
+        `SELECT g.id, g.name, g.division_id, d.name AS division_name
+         FROM item_groups g
+         JOIN divisions d ON d.id = g.division_id
+         WHERE g.company_id = $1`,
+        [companyId]
+      );
+      const groupById = new Map(groups.map((g) => [Number(g.id), g]));
+      const groupByName = new Map();
+      const groupByComposite = new Map();
+      groups.forEach((g) => {
+        const key = normalizeText(g.name);
+        if (!groupByName.has(key)) groupByName.set(key, []);
+        groupByName.get(key).push(g);
+        groupByComposite.set(`${normalizeText(g.division_name)}|${key}`, g);
+      });
+
+      const existingItems = await db.query(
+        `SELECT id, name, group_id, expiry_date
+         FROM items
+         WHERE company_id = $1`,
+        [companyId]
+      );
+      const existingMap = new Map();
+      existingItems.forEach((row) => {
+        const expiryKey = row.expiry_date ? String(row.expiry_date) : '';
+        existingMap.set(`${row.group_id}|${normalizeText(row.name)}|${expiryKey}`, row);
+      });
+
+      const skuRows = await db.query(
+        "SELECT MAX(CAST(sku AS INTEGER)) AS maxSku FROM items WHERE company_id = $1 AND sku ~ '^[0-9]+$'",
+        [companyId]
+      );
+      let nextSku = (skuRows[0]?.maxsku ? Number(skuRows[0].maxsku) : 0) + 1;
+
+      const payloads = [];
+      const errors = [];
+      let skipped = 0;
+      const now = new Date().toISOString();
+
+      rows.forEach(({ rowNumber, data }) => {
+        const itemName = data.item_name ? String(data.item_name).trim() : '';
+        if (!itemName) {
+          errors.push(`Baris ${rowNumber}: Nama item kosong.`);
+          return;
+        }
+
+        let group = null;
+        if (data.group_id) {
+          const parsed = Number(data.group_id);
+          if (groupById.has(parsed)) group = groupById.get(parsed);
+        }
+        if (!group && data.group_name) {
+          const groupNameKey = normalizeText(data.group_name);
+          if (data.division_name) {
+            const compositeKey = `${normalizeText(data.division_name)}|${groupNameKey}`;
+            group = groupByComposite.get(compositeKey) || null;
+          } else {
+            const candidates = groupByName.get(groupNameKey) || [];
+            if (candidates.length === 1) group = candidates[0];
+          }
+        }
+        if (!group) {
+          errors.push(`Baris ${rowNumber}: Jenis Barang/Divisi tidak ditemukan.`);
+          return;
+        }
+        if (req.divisionIds && !req.divisionIds.includes(group.division_id)) {
+          errors.push(`Baris ${rowNumber}: Tidak punya akses ke divisi ${group.division_name}.`);
+          return;
+        }
+
+        const expiry = data.expiry_date ? parseDate(data.expiry_date) : null;
+        if (data.expiry_date && !expiry) {
+          errors.push(`Baris ${rowNumber}: Expired date tidak valid.`);
+          return;
+        }
+
+        const key = `${group.id}|${normalizeText(itemName)}|${expiry || ''}`;
+        if (existingMap.has(key)) {
+          skipped += 1;
+          return;
+        }
+
+        let sku = data.sku ? String(data.sku).trim() : '';
+        if (!sku) {
+          sku = String(nextSku).padStart(4, '0');
+          nextSku += 1;
+        }
+
+        const minStockRaw = data.min_stock !== undefined && data.min_stock !== null ? data.min_stock : 0;
+        const minStock = Number(minStockRaw);
+        if (!Number.isFinite(minStock)) {
+          errors.push(`Baris ${rowNumber}: Min Stock tidak valid.`);
+          return;
+        }
+
+        payloads.push({
+          name: itemName,
+          group_id: group.id,
+          sku,
+          unit: data.unit ? String(data.unit).trim() : null,
+          expiry_date: expiry,
+          min_stock: minStock,
+        });
+      });
+
+      if (payloads.length) {
+        const values = [];
+        const params = [];
+        let idx = 1;
+        payloads.forEach((row) => {
+          values.push(`($${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++})`);
+          params.push(
+            companyId,
+            row.name,
+            row.group_id,
+            row.sku,
+            row.unit,
+            row.expiry_date,
+            row.min_stock,
+            now
+          );
+        });
+        await db.query(
+          `INSERT INTO items (company_id, name, group_id, sku, unit, expiry_date, min_stock, created_at)
+           VALUES ${values.join(', ')}`,
+          params
+        );
+      }
+
+      const message = `Import selesai. Berhasil: ${payloads.length}, Lewat: ${skipped}, Gagal: ${errors.length}.`;
+      if (payloads.length > 0) {
+        setFlash(req, 'success', errors.length ? `${message} Contoh error: ${errors.slice(0, 3).join(' | ')}` : message);
+      } else {
+        setFlash(req, 'error', errors.length ? errors.slice(0, 3).join(' | ') : 'Import gagal.');
+      }
+    } catch (importErr) {
+      setFlash(req, 'error', 'Gagal membaca file Excel.');
+    } finally {
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+    }
+
+    return res.redirect('/items');
+  });
 });
 
 module.exports = router;

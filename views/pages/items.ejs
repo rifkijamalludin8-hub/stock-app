@@ -84,6 +84,16 @@
       <a class="btn ghost" href="/export/items?format=xlsx">Export Excel</a>
       <a class="btn ghost" href="/export/items?format=pdf">Export PDF</a>
     </div>
+    <form class="form-stack" method="post" action="/items/import" enctype="multipart/form-data">
+      <label>
+        Import Item (Excel)
+        <input type="file" name="file" accept=".xlsx" required />
+        <div class="muted">
+          Kolom minimal: Nama Item, Jenis Barang. (Opsional: Divisi, Expired, SKU, Satuan, Min Stock)
+        </div>
+      </label>
+      <button class="btn ghost" type="submit">Import Excel</button>
+    </form>
   </div>
 
   <div class="card">

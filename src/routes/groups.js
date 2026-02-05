@@ -1,9 +1,13 @@
 const express = require('express');
+const fs = require('fs');
 const { requireCompany, requireAuth } = require('../utils/auth');
 const { divisionAccess, buildDivisionFilter } = require('../utils/division');
 const { setFlash } = require('../utils/flash');
+const { createExcelUpload } = require('../utils/excel-upload');
+const { readExcelRows, normalizeText } = require('../utils/import-helpers');
 
 const router = express.Router();
+const excelUpload = createExcelUpload('groups');
 
 router.get('/groups', requireCompany, requireAuth, divisionAccess, async (req, res) => {
   const filter = buildDivisionFilter(req.divisionIds, 'd.id', 2);
@@ -140,6 +144,125 @@ router.post('/groups/:id/delete', requireCompany, requireAuth, divisionAccess, a
     setFlash(req, 'error', 'Kelompok barang tidak bisa dihapus karena masih dipakai.');
   }
   res.redirect('/groups');
+});
+
+router.post('/groups/import', requireCompany, requireAuth, divisionAccess, (req, res) => {
+  excelUpload.single('file')(req, res, async (err) => {
+    if (err) {
+      setFlash(req, 'error', err.message || 'Upload gagal.');
+      return res.redirect('/groups');
+    }
+    if (!req.file) {
+      setFlash(req, 'error', 'File Excel wajib diunggah.');
+      return res.redirect('/groups');
+    }
+
+    const db = req.db;
+    const companyId = req.company.id;
+    try {
+      const { rows, headers } = await readExcelRows(req.file.path);
+      if (rows.length === 0) {
+        setFlash(req, 'error', 'File Excel kosong atau format tidak dikenali.');
+        return res.redirect('/groups');
+      }
+      const hasGroup = headers.includes('group_name');
+      if (!hasGroup) {
+        setFlash(req, 'error', 'Kolom Jenis Barang/Nama Kelompok wajib ada.');
+        return res.redirect('/groups');
+      }
+
+      const divisions = await db.query('SELECT id, name FROM divisions WHERE company_id = $1', [companyId]);
+      const allowedDivisions = req.divisionIds
+        ? divisions.filter((div) => req.divisionIds.includes(div.id))
+        : divisions;
+      const divisionByName = new Map();
+      const divisionById = new Map();
+      allowedDivisions.forEach((div) => {
+        divisionByName.set(normalizeText(div.name), div);
+        divisionById.set(Number(div.id), div);
+      });
+
+      const existing = await db.query(
+        'SELECT id, name, division_id FROM item_groups WHERE company_id = $1',
+        [companyId]
+      );
+      const existingMap = new Map();
+      existing.forEach((row) => {
+        existingMap.set(`${row.division_id}|${normalizeText(row.name)}`, row);
+      });
+
+      const payloads = [];
+      const errors = [];
+      let skipped = 0;
+
+      rows.forEach(({ rowNumber, data }) => {
+        const groupName = data.group_name ? String(data.group_name).trim() : '';
+        if (!groupName) {
+          errors.push(`Baris ${rowNumber}: Nama Jenis Barang kosong.`);
+          return;
+        }
+
+        let divisionId = null;
+        if (data.division_id) {
+          const parsed = Number(data.division_id);
+          if (divisionById.has(parsed)) divisionId = parsed;
+        }
+        if (!divisionId && data.division_name) {
+          const div = divisionByName.get(normalizeText(data.division_name));
+          if (div) divisionId = div.id;
+        }
+        if (!divisionId && req.divisionIds && req.divisionIds.length === 1) {
+          divisionId = req.divisionIds[0];
+        }
+        if (!divisionId) {
+          errors.push(`Baris ${rowNumber}: Divisi tidak ditemukan atau tidak diisi.`);
+          return;
+        }
+
+        const key = `${divisionId}|${normalizeText(groupName)}`;
+        if (existingMap.has(key)) {
+          skipped += 1;
+          return;
+        }
+
+        payloads.push({
+          name: groupName,
+          division_id: divisionId,
+          description: data.description ? String(data.description) : null,
+        });
+      });
+
+      if (payloads.length) {
+        const values = [];
+        const params = [];
+        let idx = 1;
+        payloads.forEach((row) => {
+          values.push(`($${idx++}, $${idx++}, $${idx++}, $${idx++})`);
+          params.push(companyId, row.name, row.division_id, row.description);
+        });
+        await db.query(
+          `INSERT INTO item_groups (company_id, name, division_id, description)
+           VALUES ${values.join(', ')}`,
+          params
+        );
+      }
+
+      const message = `Import selesai. Berhasil: ${payloads.length}, Lewat: ${skipped}, Gagal: ${errors.length}.`;
+      if (payloads.length > 0) {
+        setFlash(req, 'success', errors.length ? `${message} Contoh error: ${errors.slice(0, 3).join(' | ')}` : message);
+      } else {
+        setFlash(req, 'error', errors.length ? errors.slice(0, 3).join(' | ') : 'Import gagal.');
+      }
+    } catch (importErr) {
+      setFlash(req, 'error', 'Gagal membaca file Excel.');
+    } finally {
+      if (req.file && fs.existsSync(req.file.path)) {
+        fs.unlinkSync(req.file.path);
+      }
+    }
+
+    return res.redirect('/groups');
+  });
 });
 
 module.exports = router;
