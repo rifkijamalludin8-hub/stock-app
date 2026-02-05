@@ -28,7 +28,7 @@ router.get('/transactions', requireCompany, requireAuth, divisionAccess, async (
   );
   const transactions = await db.query(
     `SELECT t.*,
-            (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label,
+            (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date::text, '-')) AS item_label,
             u.name AS created_by_name
      FROM transactions t
      JOIN items i ON i.id = t.item_id

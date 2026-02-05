@@ -28,7 +28,7 @@ router.get('/adjustments', requireCompany, requireAuth, requireRole('user'), div
   );
   const adjustments = await db.query(
     `SELECT a.*,
-            (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label,
+            (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date::text, '-')) AS item_label,
             u.name AS created_by_name
      FROM adjustments a
      JOIN items i ON i.id = a.item_id

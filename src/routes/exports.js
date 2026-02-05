@@ -106,7 +106,7 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
               t.note,
               t.created_at,
               u.name AS created_by_name,
-              (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label
+                (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date::text, '-')) AS item_label
        FROM transactions t
        JOIN items i ON i.id = t.item_id
        JOIN item_groups g ON g.id = i.group_id
@@ -143,7 +143,7 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
               a.note,
               a.created_at,
               u.name AS created_by_name,
-              (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date, '-')) AS item_label
+                (g.name || ' - ' || i.name || ' - ' || COALESCE(i.expiry_date::text, '-')) AS item_label
        FROM adjustments a
        JOIN items i ON i.id = a.item_id
        JOIN item_groups g ON g.id = i.group_id
