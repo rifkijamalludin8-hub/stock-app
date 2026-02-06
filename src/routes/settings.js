@@ -30,12 +30,10 @@ router.post('/backup/test', requireCompany, requireAuth, requireRole('user'), as
     setFlash(req, 'error', 'SMTP belum lengkap. Isi SMTP_HOST, SMTP_USER, SMTP_PASS di Render.');
     return res.redirect('/settings');
   }
-  try {
-    await runAutoBackup();
-    setFlash(req, 'success', 'Backup otomatis sedang dikirim. Cek email user utama.');
-  } catch (err) {
-    setFlash(req, 'error', 'Gagal menjalankan backup otomatis.');
-  }
+  runAutoBackup().catch((err) => {
+    console.error('Manual backup failed:', err);
+  });
+  setFlash(req, 'success', 'Backup sedang diproses. Cek email user utama dan Logs bila belum masuk.');
   return res.redirect('/settings');
 });
 

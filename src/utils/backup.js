@@ -354,11 +354,21 @@ function createTransporter() {
     host: SMTP_HOST,
     port: Number(SMTP_PORT || 587),
     secure: SMTP_SECURE === 'true',
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
     auth: {
       user: SMTP_USER,
       pass: SMTP_PASS,
     },
   });
+}
+
+function withTimeout(promise, ms, message) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error(message || 'SMTP timeout')), ms)),
+  ]);
 }
 
 async function sendCompanyBackup(company) {
@@ -382,7 +392,8 @@ async function sendCompanyBackup(company) {
     const today = dayjs().format('YYYY-MM-DD');
     const from = process.env.SMTP_FROM || process.env.SMTP_USER;
 
-    await transporter.sendMail({
+    await withTimeout(
+      transporter.sendMail({
       from,
       to: primaryEmail,
       subject: `Backup ${company.name} - ${today}`,
@@ -401,8 +412,13 @@ async function sendCompanyBackup(company) {
           content: reportCsv,
         },
       ],
-    });
+      }),
+      20000,
+      'SMTP send timeout'
+    );
     console.log(`Backup sent to ${primaryEmail} (${company.name}).`);
+  } catch (err) {
+    console.error(`Backup failed for ${company.name}:`, err);
   } finally {
     return;
   }
