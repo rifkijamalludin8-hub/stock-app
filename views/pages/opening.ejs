@@ -21,7 +21,7 @@
               <option value="">Pilih Item</option>
               <% items.forEach((item) => { %>
                 <option value="<%= item.id %>" <%= String(item.id) === String(editOpening.item_id) ? 'selected' : '' %>>
-                  <%= item.group_name %> - <%= item.name %> - <%= item.expiry_date || '-' %>
+                  <%= item.group_name %> - <%= item.name %> - <%= formatDate(item.expiry_date) %>
                 </option>
               <% }) %>
             </select>
@@ -56,7 +56,7 @@
             <select name="item_id" required>
               <option value="">Pilih Item</option>
               <% items.forEach((item) => { %>
-                <option value="<%= item.id %>"><%= item.group_name %> - <%= item.name %> - <%= item.expiry_date || '-' %></option>
+                <option value="<%= item.id %>"><%= item.group_name %> - <%= item.name %> - <%= formatDate(item.expiry_date) %></option>
               <% }) %>
             </select>
           </label>
@@ -121,10 +121,10 @@
         <tbody>
           <% openings.forEach((row) => { %>
             <tr>
-              <td><%= row.opening_date %></td>
+              <td><%= formatDateTime(row.opening_date) %></td>
               <td><%= row.division_name %></td>
               <td><%= row.group_name %></td>
-              <td><%= row.item_name %> - <%= row.expiry_date || '-' %></td>
+              <td><%= row.item_name %> - <%= formatDate(row.expiry_date) %></td>
               <td><%= formatQty(row.qty) %></td>
               <% if (showPrice) { %><td><%= formatPrice(row.price_per_unit) %></td><% } %>
               <td><%= row.note || '-' %></td>

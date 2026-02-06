@@ -23,7 +23,7 @@
         <select id="txn-item-select" name="item_id" required>
           <option value="">Pilih Item</option>
           <% items.forEach((item) => { %>
-            <option value="<%= item.id %>"><%= item.group_name %> - <%= item.name %> - <%= item.expiry_date || '-' %></option>
+            <option value="<%= item.id %>"><%= item.group_name %> - <%= item.name %> - <%= formatDate(item.expiry_date) %></option>
           <% }) %>
         </select>
       </label>
@@ -76,7 +76,7 @@
         <tbody>
           <% transactions.forEach((t) => { %>
             <tr>
-              <td><%= t.txn_date %></td>
+              <td><%= formatDateTime(t.txn_date) %></td>
               <td><%= t.item_label %></td>
             <td><%= formatQty(t.qty) %></td>
               <% if (showPrice && type === 'IN') { %><td><%= formatPrice(t.price_per_unit) %></td><% } %>

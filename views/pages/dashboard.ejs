@@ -87,7 +87,7 @@
       <tbody>
         <% recentTransactions.forEach((t) => { %>
           <tr>
-            <td><%= t.txn_date %></td>
+            <td><%= formatDateTime(t.txn_date) %></td>
             <td><%= t.item_name %></td>
             <td><span class="pill <%= t.type === 'IN' ? 'in' : 'out' %>"><%= t.type %></span></td>
             <td><%= formatQty(t.qty) %></td>

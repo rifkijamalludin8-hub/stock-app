@@ -130,7 +130,7 @@
                         <div class="muted">SKU: <%= item.sku || '-' %></div>
                       </td>
                       <td><%= formatQty(item.stock) %> <%= item.unit || '' %></td>
-                      <td><%= item.expiry_date || '-' %></td>
+                      <td><%= formatDate(item.expiry_date) %></td>
                       <td><%= formatQty(item.min_stock) %></td>
                       <td>
                         <div class="actions">

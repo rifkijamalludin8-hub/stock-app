@@ -37,8 +37,10 @@ router.get('/', requireCompany, requireAuth, divisionAccess, async (req, res) =>
   )[0]?.count;
 
   const stockRows = await getCurrentStockRows(db, companyId, divisionIds);
-  const totalStock = stockRows.reduce((acc, row) => acc + (row.stock || 0), 0);
-  const lowStock = stockRows.filter((row) => row.stock <= row.min_stock).slice(0, 6);
+  const totalStock = stockRows.reduce((acc, row) => acc + Number(row.stock || 0), 0);
+  const lowStock = stockRows
+    .filter((row) => Number(row.stock || 0) <= Number(row.min_stock || 0))
+    .slice(0, 6);
 
   const filterTxn = buildDivisionFilter(divisionIds, 'd.id', 3);
   const inToday = (

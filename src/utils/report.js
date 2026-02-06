@@ -110,8 +110,24 @@ async function getReportRows(db, companyId, startDate, endDate, divisionIds = nu
   const rows = await db.query(sql, [...params, ...filter.params]);
 
   return rows.map((row) => {
-    const opening = row.opening_qty + row.in_before - row.out_before + row.adj_before;
-    const closing = opening + row.in_qty - row.out_qty + row.adj_qty;
+    const toNumber = (value) => {
+      const numberValue = Number(value);
+      return Number.isFinite(numberValue) ? numberValue : 0;
+    };
+    const openingQty = toNumber(row.opening_qty);
+    const inBefore = toNumber(row.in_before);
+    const outBefore = toNumber(row.out_before);
+    const adjBefore = toNumber(row.adj_before);
+    const inQty = toNumber(row.in_qty);
+    const outQty = toNumber(row.out_qty);
+    const adjQty = toNumber(row.adj_qty);
+    const opening = openingQty + inBefore - outBefore + adjBefore;
+    const closing = opening + inQty - outQty + adjQty;
+    const price =
+      row.price_per_unit === null || row.price_per_unit === undefined
+        ? null
+        : Number(row.price_per_unit);
+    const safePrice = Number.isFinite(price) ? price : null;
     return {
       division_name: row.division_name,
       group_name: row.group_name,
@@ -120,15 +136,15 @@ async function getReportRows(db, companyId, startDate, endDate, divisionIds = nu
       expiry_date: row.expiry_date,
       unit: row.unit,
       opening,
-      in_qty: row.in_qty,
-      out_qty: row.out_qty,
-      adj_qty: row.adj_qty,
+      in_qty: inQty,
+      out_qty: outQty,
+      adj_qty: adjQty,
       closing,
-      price_per_unit: row.price_per_unit,
+      price_per_unit: safePrice,
       stock_value:
-        row.price_per_unit === null || row.price_per_unit === undefined
+        safePrice === null
           ? null
-          : closing * row.price_per_unit,
+          : closing * safePrice,
     };
   });
 }

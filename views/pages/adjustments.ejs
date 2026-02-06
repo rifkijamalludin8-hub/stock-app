@@ -22,7 +22,7 @@
         <select id="adj-item-select" name="item_id" required>
           <option value="">Pilih Item</option>
           <% items.forEach((item) => { %>
-            <option value="<%= item.id %>"><%= item.group_name %> - <%= item.name %> - <%= item.expiry_date || '-' %></option>
+            <option value="<%= item.id %>"><%= item.group_name %> - <%= item.name %> - <%= formatDate(item.expiry_date) %></option>
           <% }) %>
         </select>
       </label>
@@ -78,7 +78,7 @@
         <tbody>
           <% adjustments.forEach((a) => { %>
             <tr>
-              <td><%= a.adj_date %></td>
+              <td><%= formatDateTime(a.adj_date) %></td>
               <td><%= a.item_label %></td>
               <td><%= formatQty(a.qty_delta) %></td>
               <td><%= a.note || '-' %></td>

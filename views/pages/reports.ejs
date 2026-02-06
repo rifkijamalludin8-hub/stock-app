@@ -33,7 +33,7 @@
     <div class="card-header">
       <div>
         <h3>Ringkasan Laporan</h3>
-        <p>Perusahaan: <strong><%= company.name %></strong> | Periode: <%= start %> s/d <%= end %></p>
+        <p>Perusahaan: <strong><%= company.name %></strong> | Periode: <%= formatDate(start) %> s/d <%= formatDate(end) %></p>
       </div>
     </div>
   </div>
@@ -72,7 +72,7 @@
                       <strong><%= item.item_name %></strong>
                       <div class="muted"><%= item.unit || '' %></div>
                     </td>
-                    <td><%= item.expiry_date || '-' %></td>
+                    <td><%= formatDate(item.expiry_date) %></td>
                     <td><%= formatQty(item.opening) %></td>
                     <td><%= formatQty(item.in_qty) %></td>
                     <td><%= formatQty(item.out_qty) %></td>
