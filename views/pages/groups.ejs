@@ -78,23 +78,25 @@
     <% if (groups.length === 0) { %>
       <div class="empty-state">Belum ada data.</div>
     <% } else { %>
-      <ul class="list">
-        <% groups.forEach((group) => { %>
-          <li>
-            <div>
-              <strong><%= group.name %></strong>
-              <div class="muted"><%= group.division_name %></div>
-              <div class="muted"><%= group.description || '-' %></div>
-            </div>
-            <div class="actions">
-              <a class="btn ghost" href="/groups?edit=<%= group.id %>">Edit</a>
-              <form action="/groups/<%= group.id %>/delete" method="post" onsubmit="return confirm('Hapus kelompok ini?')">
-                <button class="btn danger" type="submit">Hapus</button>
-              </form>
-            </div>
-          </li>
-        <% }) %>
-      </ul>
+      <div class="scroll-box">
+        <ul class="list">
+          <% groups.forEach((group) => { %>
+            <li>
+              <div>
+                <strong><%= group.name %></strong>
+                <div class="muted"><%= group.division_name %></div>
+                <div class="muted"><%= group.description || '-' %></div>
+              </div>
+              <div class="actions">
+                <a class="btn ghost" href="/groups?edit=<%= group.id %>">Edit</a>
+                <form action="/groups/<%= group.id %>/delete" method="post" onsubmit="return confirm('Hapus kelompok ini?')">
+                  <button class="btn danger" type="submit">Hapus</button>
+                </form>
+              </div>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
     <% } %>
   </div>
 </div>

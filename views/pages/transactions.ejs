@@ -60,33 +60,35 @@
         <a class="btn <%= type === 'OUT' ? 'primary' : 'ghost' %>" href="/transactions?type=OUT">Keluar</a>
       </div>
     </div>
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Tanggal</th>
-            <th>Item</th>
-            <th>Qty</th>
-            <% if (showPrice && type === 'IN') { %><th>Harga/Unit</th><% } %>
-            <th>Catatan</th>
-            <th>Dibuat Oleh</th>
-            <th>Dibuat</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% transactions.forEach((t) => { %>
+    <div class="scroll-box">
+      <div class="table-wrapper">
+        <table>
+          <thead>
             <tr>
-              <td><%= formatDateTime(t.txn_date) %></td>
-              <td><%= t.item_label %></td>
-            <td><%= formatQty(t.qty) %></td>
-              <% if (showPrice && type === 'IN') { %><td><%= formatPrice(t.price_per_unit) %></td><% } %>
-              <td><%= t.note || '-' %></td>
-              <td><%= t.created_by_name || '-' %></td>
-              <td><%= formatDateTime(t.created_at) %></td>
+              <th>Tanggal</th>
+              <th>Item</th>
+              <th>Qty</th>
+              <% if (showPrice && type === 'IN') { %><th>Harga/Unit</th><% } %>
+              <th>Catatan</th>
+              <th>Dibuat Oleh</th>
+              <th>Dibuat</th>
             </tr>
-          <% }) %>
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            <% transactions.forEach((t) => { %>
+              <tr>
+                <td><%= formatDateTime(t.txn_date) %></td>
+                <td><%= t.item_label %></td>
+              <td><%= formatQty(t.qty) %></td>
+                <% if (showPrice && type === 'IN') { %><td><%= formatPrice(t.price_per_unit) %></td><% } %>
+                <td><%= t.note || '-' %></td>
+                <td><%= t.created_by_name || '-' %></td>
+                <td><%= formatDateTime(t.created_at) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>

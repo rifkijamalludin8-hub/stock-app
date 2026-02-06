@@ -45,44 +45,46 @@
 <% if (flatRows.length === 0) { %>
   <div class="empty-state">Belum ada data mutasi untuk range ini.</div>
 <% } else { %>
-  <% grouped.forEach((group) => { %>
-    <div class="card">
-      <div class="card-header">
-        <div>
-          <h3><%= group.item.item_name %></h3>
-          <p><%= group.item.label %></p>
+  <div class="scroll-box">
+    <% grouped.forEach((group) => { %>
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3><%= group.item.item_name %></h3>
+            <p><%= group.item.label %></p>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Tanggal</th>
+                <th>Tipe</th>
+                <th>Qty</th>
+                <th>Saldo</th>
+                <th>Catatan</th>
+                <th>Dibuat Oleh</th>
+                <th>Dibuat</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% group.rows.forEach((row) => { %>
+                <tr>
+                  <td><%= formatDateTime(row.event_date) %></td>
+                  <td><%= row.type %></td>
+                  <td><%= formatQty(row.qty) %></td>
+                  <td><%= formatQty(row.saldo) %></td>
+                  <td><%= row.note || '-' %></td>
+                  <td><%= row.created_by_name || '-' %></td>
+                  <td><%= row.created_at ? formatDateTime(row.created_at) : '-' %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
         </div>
       </div>
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Tanggal</th>
-              <th>Tipe</th>
-              <th>Qty</th>
-              <th>Saldo</th>
-              <th>Catatan</th>
-              <th>Dibuat Oleh</th>
-              <th>Dibuat</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% group.rows.forEach((row) => { %>
-              <tr>
-                <td><%= formatDateTime(row.event_date) %></td>
-                <td><%= row.type %></td>
-                <td><%= formatQty(row.qty) %></td>
-                <td><%= formatQty(row.saldo) %></td>
-                <td><%= row.note || '-' %></td>
-                <td><%= row.created_by_name || '-' %></td>
-                <td><%= row.created_at ? formatDateTime(row.created_at) : '-' %></td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  <% }) %>
+    <% }) %>
+  </div>
 <% } %>
 
 <%- include('../partials/foot') %>

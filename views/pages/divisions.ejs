@@ -31,21 +31,23 @@
     <% if (divisions.length === 0) { %>
       <div class="empty-state">Belum ada data.</div>
     <% } else { %>
-      <ul class="list">
-        <% divisions.forEach((division) => { %>
-          <li>
-            <div>
-              <strong><%= division.name %></strong>
-              <div class="muted"><%= division.description || '-' %></div>
-            </div>
-            <div class="actions">
-              <form action="/divisions/<%= division.id %>/delete" method="post" onsubmit="return confirm('Hapus divisi ini?')">
-                <button class="btn danger" type="submit">Hapus</button>
-              </form>
-            </div>
-          </li>
-        <% }) %>
-      </ul>
+      <div class="scroll-box">
+        <ul class="list">
+          <% divisions.forEach((division) => { %>
+            <li>
+              <div>
+                <strong><%= division.name %></strong>
+                <div class="muted"><%= division.description || '-' %></div>
+              </div>
+              <div class="actions">
+                <form action="/divisions/<%= division.id %>/delete" method="post" onsubmit="return confirm('Hapus divisi ini?')">
+                  <button class="btn danger" type="submit">Hapus</button>
+                </form>
+              </div>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
     <% } %>
   </div>
 </div>

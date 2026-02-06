@@ -63,31 +63,33 @@
         <p>50 adjustment terakhir.</p>
       </div>
     </div>
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Tanggal</th>
-            <th>Item</th>
-            <th>Qty</th>
-            <th>Catatan</th>
-            <th>Dibuat Oleh</th>
-            <th>Dibuat</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% adjustments.forEach((a) => { %>
+    <div class="scroll-box">
+      <div class="table-wrapper">
+        <table>
+          <thead>
             <tr>
-              <td><%= formatDateTime(a.adj_date) %></td>
-              <td><%= a.item_label %></td>
-              <td><%= formatQty(a.qty_delta) %></td>
-              <td><%= a.note || '-' %></td>
-              <td><%= a.created_by_name || '-' %></td>
-              <td><%= formatDateTime(a.created_at) %></td>
+              <th>Tanggal</th>
+              <th>Item</th>
+              <th>Qty</th>
+              <th>Catatan</th>
+              <th>Dibuat Oleh</th>
+              <th>Dibuat</th>
             </tr>
-          <% }) %>
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            <% adjustments.forEach((a) => { %>
+              <tr>
+                <td><%= formatDateTime(a.adj_date) %></td>
+                <td><%= a.item_label %></td>
+                <td><%= formatQty(a.qty_delta) %></td>
+                <td><%= a.note || '-' %></td>
+                <td><%= a.created_by_name || '-' %></td>
+                <td><%= formatDateTime(a.created_at) %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>

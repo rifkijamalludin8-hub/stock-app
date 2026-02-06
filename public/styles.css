@@ -369,6 +369,12 @@ input:focus, select:focus, textarea:focus {
   overflow-x: auto;
 }
 
+.scroll-box {
+  max-height: min(520px, 70vh);
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -518,6 +524,10 @@ th {
   .user-box {
     width: 100%;
     justify-content: space-between;
+  }
+
+  .scroll-box {
+    max-height: 60vh;
   }
 }
 

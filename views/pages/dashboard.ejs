@@ -73,31 +73,33 @@
     </div>
     <a class="btn ghost" href="/transactions?type=IN">Lihat Semua</a>
   </div>
-  <div class="table-wrapper">
-    <table>
-      <thead>
-        <tr>
-          <th>Tanggal</th>
-          <th>Item</th>
-          <th>Tipe</th>
-          <th>Qty</th>
-          <th>Dibuat Oleh</th>
-          <% if (showPrice) { %><th>Harga/Unit</th><% } %>
-        </tr>
-      </thead>
-      <tbody>
-        <% recentTransactions.forEach((t) => { %>
+  <div class="scroll-box">
+    <div class="table-wrapper">
+      <table>
+        <thead>
           <tr>
-            <td><%= formatDateTime(t.txn_date) %></td>
-            <td><%= t.item_name %></td>
-            <td><span class="pill <%= t.type === 'IN' ? 'in' : 'out' %>"><%= t.type %></span></td>
-            <td><%= formatQty(t.qty) %></td>
-            <td><%= t.created_by_name || '-' %></td>
-            <% if (showPrice) { %><td><%= formatPrice(t.price_per_unit) %></td><% } %>
+            <th>Tanggal</th>
+            <th>Item</th>
+            <th>Tipe</th>
+            <th>Qty</th>
+            <th>Dibuat Oleh</th>
+            <% if (showPrice) { %><th>Harga/Unit</th><% } %>
           </tr>
-        <% }) %>
-      </tbody>
-    </table>
+        </thead>
+        <tbody>
+          <% recentTransactions.forEach((t) => { %>
+            <tr>
+              <td><%= formatDateTime(t.txn_date) %></td>
+              <td><%= t.item_name %></td>
+              <td><span class="pill <%= t.type === 'IN' ? 'in' : 'out' %>"><%= t.type %></span></td>
+              <td><%= formatQty(t.qty) %></td>
+              <td><%= t.created_by_name || '-' %></td>
+              <% if (showPrice) { %><td><%= formatPrice(t.price_per_unit) %></td><% } %>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 

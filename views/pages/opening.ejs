@@ -104,44 +104,46 @@
         <p>Riwayat input stock awal.</p>
       </div>
     </div>
-    <div class="table-wrapper">
-      <table>
-        <thead>
-          <tr>
-            <th>Tanggal</th>
-            <th>Divisi</th>
-            <th>Jenis Barang</th>
-            <th>Item</th>
-            <th>Qty</th>
-            <% if (showPrice) { %><th>Harga/Unit</th><% } %>
-            <th>Catatan</th>
-            <% if (canCreate) { %><th>Aksi</th><% } %>
-          </tr>
-        </thead>
-        <tbody>
-          <% openings.forEach((row) => { %>
+    <div class="scroll-box">
+      <div class="table-wrapper">
+        <table>
+          <thead>
             <tr>
-              <td><%= formatDateTime(row.opening_date) %></td>
-              <td><%= row.division_name %></td>
-              <td><%= row.group_name %></td>
-              <td><%= row.item_name %> - <%= formatDate(row.expiry_date) %></td>
-              <td><%= formatQty(row.qty) %></td>
-              <% if (showPrice) { %><td><%= formatPrice(row.price_per_unit) %></td><% } %>
-              <td><%= row.note || '-' %></td>
-              <% if (canCreate) { %>
-                <td>
-                  <div class="actions">
-                    <a class="btn ghost" href="/opening?edit=<%= row.id %>">Edit</a>
-                    <form method="post" action="/opening/<%= row.id %>/delete" onsubmit="return confirm('Hapus data stock awal ini?');">
-                      <button class="btn danger" type="submit">Hapus</button>
-                    </form>
-                  </div>
-                </td>
-              <% } %>
+              <th>Tanggal</th>
+              <th>Divisi</th>
+              <th>Jenis Barang</th>
+              <th>Item</th>
+              <th>Qty</th>
+              <% if (showPrice) { %><th>Harga/Unit</th><% } %>
+              <th>Catatan</th>
+              <% if (canCreate) { %><th>Aksi</th><% } %>
             </tr>
-          <% }) %>
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            <% openings.forEach((row) => { %>
+              <tr>
+                <td><%= formatDateTime(row.opening_date) %></td>
+                <td><%= row.division_name %></td>
+                <td><%= row.group_name %></td>
+                <td><%= row.item_name %> - <%= formatDate(row.expiry_date) %></td>
+                <td><%= formatQty(row.qty) %></td>
+                <% if (showPrice) { %><td><%= formatPrice(row.price_per_unit) %></td><% } %>
+                <td><%= row.note || '-' %></td>
+                <% if (canCreate) { %>
+                  <td>
+                    <div class="actions">
+                      <a class="btn ghost" href="/opening?edit=<%= row.id %>">Edit</a>
+                      <form method="post" action="/opening/<%= row.id %>/delete" onsubmit="return confirm('Hapus data stock awal ini?');">
+                        <button class="btn danger" type="submit">Hapus</button>
+                      </form>
+                    </div>
+                  </td>
+                <% } %>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </div>

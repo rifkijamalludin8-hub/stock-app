@@ -106,48 +106,50 @@
     <% if (divisions.length === 0) { %>
       <div class="empty-state">Belum ada item.</div>
     <% } else { %>
-      <% divisions.forEach((division) => { %>
-        <div class="section-block">
-          <div class="section-title"><%= division.name %></div>
-          <% division.groups.forEach((group) => { %>
-            <div class="section-sub"><%= group.name %></div>
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Item</th>
-                    <th>Stock</th>
-                    <th>Expired</th>
-                    <th>Min</th>
-                    <th>Aksi</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <% group.items.forEach((item) => { %>
+      <div class="scroll-box">
+        <% divisions.forEach((division) => { %>
+          <div class="section-block">
+            <div class="section-title"><%= division.name %></div>
+            <% division.groups.forEach((group) => { %>
+              <div class="section-sub"><%= group.name %></div>
+              <div class="table-wrapper">
+                <table>
+                  <thead>
                     <tr>
-                      <td>
-                        <strong><%= item.name %></strong>
-                        <div class="muted">SKU: <%= item.sku || '-' %></div>
-                      </td>
-                      <td><%= formatQty(item.stock) %> <%= item.unit || '' %></td>
-                      <td><%= formatDate(item.expiry_date) %></td>
-                      <td><%= formatQty(item.min_stock) %></td>
-                      <td>
-                        <div class="actions">
-                          <a class="btn ghost" href="/items?edit=<%= item.id %>">Edit</a>
-                          <form action="/items/<%= item.id %>/delete" method="post" onsubmit="return confirm('Hapus item ini?')">
-                            <button class="btn danger" type="submit">Hapus</button>
-                          </form>
-                        </div>
-                      </td>
+                      <th>Item</th>
+                      <th>Stock</th>
+                      <th>Expired</th>
+                      <th>Min</th>
+                      <th>Aksi</th>
                     </tr>
-                  <% }) %>
-                </tbody>
-              </table>
-            </div>
-          <% }) %>
-        </div>
-      <% }) %>
+                  </thead>
+                  <tbody>
+                    <% group.items.forEach((item) => { %>
+                      <tr>
+                        <td>
+                          <strong><%= item.name %></strong>
+                          <div class="muted">SKU: <%= item.sku || '-' %></div>
+                        </td>
+                        <td><%= formatQty(item.stock) %> <%= item.unit || '' %></td>
+                        <td><%= formatDate(item.expiry_date) %></td>
+                        <td><%= formatQty(item.min_stock) %></td>
+                        <td>
+                          <div class="actions">
+                            <a class="btn ghost" href="/items?edit=<%= item.id %>">Edit</a>
+                            <form action="/items/<%= item.id %>/delete" method="post" onsubmit="return confirm('Hapus item ini?')">
+                              <button class="btn danger" type="submit">Hapus</button>
+                            </form>
+                          </div>
+                        </td>
+                      </tr>
+                    <% }) %>
+                  </tbody>
+                </table>
+              </div>
+            <% }) %>
+          </div>
+        <% }) %>
+      </div>
     <% } %>
   </div>
 </div>

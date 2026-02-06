@@ -37,60 +37,62 @@
       </div>
     </div>
   </div>
-  <% divisions.forEach((division) => { %>
-    <div class="card">
-      <div class="card-header">
-        <div>
-          <h3><%= division.name %></h3>
-          <p>Divisi → Jenis Barang → Item</p>
-        </div>
-      </div>
-      <% division.groups.forEach((group) => { %>
-        <div class="section-block">
-          <div class="section-sub"><%= group.name %></div>
-          <div class="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Expired</th>
-                  <th>Saldo Awal</th>
-                  <th>Masuk</th>
-                  <th>Keluar</th>
-                  <th>Adjustment</th>
-                  <th>Saldo Akhir</th>
-                  <% if (showPrice) { %>
-                    <th>Harga/Unit</th>
-                    <th>Nilai Akhir</th>
-                  <% } %>
-                </tr>
-              </thead>
-              <tbody>
-                <% group.items.forEach((item) => { %>
-                  <tr>
-                    <td>
-                      <strong><%= item.item_name %></strong>
-                      <div class="muted"><%= item.unit || '' %></div>
-                    </td>
-                    <td><%= formatDate(item.expiry_date) %></td>
-                    <td><%= formatQty(item.opening) %></td>
-                    <td><%= formatQty(item.in_qty) %></td>
-                    <td><%= formatQty(item.out_qty) %></td>
-                    <td><%= formatQty(item.adj_qty) %></td>
-                    <td><%= formatQty(item.closing) %></td>
-                    <% if (showPrice) { %>
-                      <td><%= formatPrice(item.price_per_unit) %></td>
-                      <td><%= formatPrice(item.stock_value) %></td>
-                    <% } %>
-                  </tr>
-                <% }) %>
-              </tbody>
-            </table>
+  <div class="scroll-box">
+    <% divisions.forEach((division) => { %>
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <h3><%= division.name %></h3>
+            <p>Divisi → Jenis Barang → Item</p>
           </div>
         </div>
-      <% }) %>
-    </div>
-  <% }) %>
+        <% division.groups.forEach((group) => { %>
+          <div class="section-block">
+            <div class="section-sub"><%= group.name %></div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Item</th>
+                    <th>Expired</th>
+                    <th>Saldo Awal</th>
+                    <th>Masuk</th>
+                    <th>Keluar</th>
+                    <th>Adjustment</th>
+                    <th>Saldo Akhir</th>
+                    <% if (showPrice) { %>
+                      <th>Harga/Unit</th>
+                      <th>Nilai Akhir</th>
+                    <% } %>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% group.items.forEach((item) => { %>
+                    <tr>
+                      <td>
+                        <strong><%= item.item_name %></strong>
+                        <div class="muted"><%= item.unit || '' %></div>
+                      </td>
+                      <td><%= formatDate(item.expiry_date) %></td>
+                      <td><%= formatQty(item.opening) %></td>
+                      <td><%= formatQty(item.in_qty) %></td>
+                      <td><%= formatQty(item.out_qty) %></td>
+                      <td><%= formatQty(item.adj_qty) %></td>
+                      <td><%= formatQty(item.closing) %></td>
+                      <% if (showPrice) { %>
+                        <td><%= formatPrice(item.price_per_unit) %></td>
+                        <td><%= formatPrice(item.stock_value) %></td>
+                      <% } %>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% }) %>
+  </div>
 <% } %>
 
 <%- include('../partials/foot') %>
