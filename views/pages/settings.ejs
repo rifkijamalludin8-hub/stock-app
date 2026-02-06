@@ -42,14 +42,14 @@
     <div class="card-header">
       <div>
         <h3>Rebuild Saldo Awal</h3>
-        <p>Hitung ulang stock menjadi saldo awal dan hapus data lama.</p>
+        <p>Hitung ulang stock menjadi saldo awal dan hapus semua transaksi & adjustment.</p>
       </div>
     </div>
     <p class="muted">
       Tindakan ini akan:
-      <br/>1) Menghitung saldo awal per item pada tanggal cutoff.
-      <br/>2) Menghapus transaksi & adjustment sebelum tanggal cutoff.
-      <br/>3) Menghapus stock awal lama sebelum tanggal cutoff.
+      <br/>1) Membuat backup Excel (auto download).
+      <br/>2) Menghitung saldo awal per item pada tanggal cutoff.
+      <br/>3) Menghapus semua transaksi, adjustment, dan stock awal lama.
     </p>
     <p class="muted">Disarankan download backup terlebih dahulu.</p>
     <form method="post" action="/opening/rebuild" class="form-inline">

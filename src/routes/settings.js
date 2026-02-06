@@ -54,6 +54,9 @@ router.post('/opening/rebuild', requireCompany, requireAuth, requireRole('user')
   }
 
   try {
+    const { workbook } = await buildDatabaseBackupWorkbook(req.company.id);
+    const backupBuffer = await workbook.xlsx.writeBuffer();
+
     const rows = await getReportRows(req.db, req.company.id, cutoff_date, cutoff_date, null);
     const openingPayload = rows
       .map((row) => ({
@@ -66,18 +69,9 @@ router.post('/opening/rebuild', requireCompany, requireAuth, requireRole('user')
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      await client.query(
-        'DELETE FROM opening_balances WHERE company_id = $1 AND opening_date <= $2',
-        [req.company.id, cutoff_date]
-      );
-      await client.query(
-        'DELETE FROM transactions WHERE company_id = $1 AND txn_date < $2',
-        [req.company.id, cutoff_date]
-      );
-      await client.query(
-        'DELETE FROM adjustments WHERE company_id = $1 AND adj_date < $2',
-        [req.company.id, cutoff_date]
-      );
+      await client.query('DELETE FROM opening_balances WHERE company_id = $1', [req.company.id]);
+      await client.query('DELETE FROM transactions WHERE company_id = $1', [req.company.id]);
+      await client.query('DELETE FROM adjustments WHERE company_id = $1', [req.company.id]);
 
       if (openingPayload.length) {
         const values = [];
@@ -85,7 +79,7 @@ router.post('/opening/rebuild', requireCompany, requireAuth, requireRole('user')
         let idx = 1;
         openingPayload.forEach((row) => {
           values.push(
-            `($${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++})`
+            `($${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++}, $${idx++})`
           );
           params.push(
             req.company.id,
@@ -94,28 +88,33 @@ router.post('/opening/rebuild', requireCompany, requireAuth, requireRole('user')
             row.price_per_unit,
             'Rebuild saldo awal',
             cutoff_date,
-            req.session.user.id
+            req.session.user.id,
+            new Date().toISOString()
           );
         });
         await client.query(
-          `INSERT INTO opening_balances (company_id, item_id, qty, price_per_unit, note, opening_date, created_by)
+          `INSERT INTO opening_balances (company_id, item_id, qty, price_per_unit, note, opening_date, created_by, created_at)
            VALUES ${values.join(', ')}`,
           params
         );
       }
 
       await client.query('COMMIT');
-      setFlash(
-        req,
-        'success',
-        `Rebuild selesai. Stock awal dihitung per ${cutoff_date} dan data lama dihapus.`
-      );
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
     } finally {
       client.release();
     }
+
+    const filename = `backup-rebuild-${req.company.slug || req.company.id}-${cutoff_date}.xlsx`;
+    res.setHeader(
+      'Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(backupBuffer);
+    return;
   } catch (err) {
     setFlash(req, 'error', 'Gagal rebuild saldo awal. Cek Logs untuk detail.');
   }
