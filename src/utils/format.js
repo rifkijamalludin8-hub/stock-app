@@ -28,6 +28,13 @@ function formatQty(value) {
   }).format(numberValue);
 }
 
+function formatDate(value) {
+  if (!value) return '-';
+  const parsed = dayjs(value);
+  if (!parsed.isValid()) return String(value);
+  return parsed.format('YYYY-MM-DD');
+}
+
 function parsePrice(raw) {
   if (raw === null || raw === undefined) return null;
   if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
@@ -67,4 +74,4 @@ function parsePrice(raw) {
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
-module.exports = { formatPrice, formatDateTime, formatQty, parsePrice };
+module.exports = { formatPrice, formatDateTime, formatDate, formatQty, parsePrice };
