@@ -2,7 +2,7 @@ const express = require('express');
 const { requireCompany, requireAuth, requireRole } = require('../utils/auth');
 const { setFlash } = require('../utils/flash');
 const { getCompanyById } = require('../db/master');
-const { runAutoBackup, buildDatabaseBackupCsv } = require('../utils/backup');
+const { runAutoBackup, buildDatabaseBackupWorkbook } = require('../utils/backup');
 
 const router = express.Router();
 
@@ -13,13 +13,16 @@ router.get('/settings', requireCompany, requireAuth, requireRole('user'), async 
 
 router.get('/backup/company', requireCompany, requireAuth, requireRole('user'), async (req, res) => {
   try {
-    const csv = await buildDatabaseBackupCsv(req.company.id);
-    const filename = `backup-${req.company.slug || req.company.id}-${new Date().toISOString().slice(0, 10)}.csv`;
-    res.setHeader('Content-Type', 'text/csv');
+    const { workbook } = await buildDatabaseBackupWorkbook(req.company.id);
+    const filename = `backup-${req.company.slug || req.company.id}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader('Content-Type',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    );
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    res.send(csv);
+    await workbook.xlsx.write(res);
+    res.end();
   } catch (err) {
-    setFlash(req, 'error', 'Gagal membuat backup CSV.');
+    setFlash(req, 'error', 'Gagal membuat backup Excel.');
     return res.redirect('/settings');
   }
 });

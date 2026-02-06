@@ -15,11 +15,11 @@
     <div class="card-header">
       <div>
         <h3>Backup Database</h3>
-        <p>Unduh backup Excel lengkap (data master & transaksi).</p>
+        <p>Unduh backup Excel lengkap (data master & transaksi) per sheet.</p>
       </div>
     </div>
     <p class="muted">File berisi Divisi, Jenis Barang, Item, Stock Awal, Transaksi, Adjustment, dan User.</p>
-    <a class="btn ghost" href="/backup/company">Download Backup CSV</a>
+    <a class="btn ghost" href="/backup/company">Download Backup Excel</a>
   </div>
 
   <div class="card">
@@ -30,7 +30,7 @@
       </div>
     </div>
     <p class="muted">
-      Sistem akan mengirim 3 file: Backup CSV, CSV Transaksi, dan CSV Laporan.
+      Sistem akan mengirim 1 file Excel dengan sheet terpisah.
       Pastikan SMTP sudah diisi di Render.
     </p>
     <form method="post" action="/backup/test">
