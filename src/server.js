@@ -42,6 +42,10 @@ if (process.env.NODE_ENV === 'production') {
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
+app.locals.formatPrice = formatPrice;
+app.locals.formatDateTime = formatDateTime;
+app.locals.formatDate = formatDate;
+app.locals.formatQty = formatQty;
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
