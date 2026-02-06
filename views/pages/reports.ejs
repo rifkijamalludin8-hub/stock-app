@@ -73,11 +73,11 @@
                       <div class="muted"><%= item.unit || '' %></div>
                     </td>
                     <td><%= item.expiry_date || '-' %></td>
-                    <td><%= item.opening %></td>
-                    <td><%= item.in_qty %></td>
-                    <td><%= item.out_qty %></td>
-                    <td><%= item.adj_qty %></td>
-                    <td><%= item.closing %></td>
+                    <td><%= formatQty(item.opening) %></td>
+                    <td><%= formatQty(item.in_qty) %></td>
+                    <td><%= formatQty(item.out_qty) %></td>
+                    <td><%= formatQty(item.adj_qty) %></td>
+                    <td><%= formatQty(item.closing) %></td>
                     <% if (showPrice) { %>
                       <td><%= formatPrice(item.price_per_unit) %></td>
                       <td><%= formatPrice(item.stock_value) %></td>

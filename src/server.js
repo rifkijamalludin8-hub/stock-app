@@ -4,7 +4,7 @@ const session = require('express-session');
 const connectRedis = require('connect-redis');
 const { createClient } = require('redis');
 const { flashMiddleware } = require('./utils/flash');
-const { formatPrice, formatDateTime } = require('./utils/format');
+const { formatPrice, formatDateTime, formatQty } = require('./utils/format');
 const { scheduleAutoBackup } = require('./utils/backup');
 const { listCompanies } = require('./db/master');
 
@@ -78,6 +78,7 @@ app.use(async (req, res, next) => {
   res.locals.divisionWarning = null;
   res.locals.formatPrice = formatPrice;
   res.locals.formatDateTime = formatDateTime;
+  res.locals.formatQty = formatQty;
   next();
 });
 

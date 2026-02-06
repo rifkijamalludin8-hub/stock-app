@@ -15,8 +15,12 @@
         <input name="txn_date" type="date" value="<%= today %>" />
       </label>
       <label>
+        Cari Item
+        <input type="text" class="select-search" data-target="txn-item-select" placeholder="Ketik nama item..." />
+      </label>
+      <label>
         Item
-        <select name="item_id" required>
+        <select id="txn-item-select" name="item_id" required>
           <option value="">Pilih Item</option>
           <% items.forEach((item) => { %>
             <option value="<%= item.id %>"><%= item.group_name %> - <%= item.name %> - <%= item.expiry_date || '-' %></option>
@@ -74,7 +78,7 @@
             <tr>
               <td><%= t.txn_date %></td>
               <td><%= t.item_label %></td>
-              <td><%= t.qty %></td>
+            <td><%= formatQty(t.qty) %></td>
               <% if (showPrice && type === 'IN') { %><td><%= formatPrice(t.price_per_unit) %></td><% } %>
               <td><%= t.note || '-' %></td>
               <td><%= t.created_by_name || '-' %></td>

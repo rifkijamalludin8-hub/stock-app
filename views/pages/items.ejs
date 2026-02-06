@@ -129,9 +129,9 @@
                         <strong><%= item.name %></strong>
                         <div class="muted">SKU: <%= item.sku || '-' %></div>
                       </td>
-                      <td><%= item.stock %> <%= item.unit || '' %></td>
+                      <td><%= formatQty(item.stock) %> <%= item.unit || '' %></td>
                       <td><%= item.expiry_date || '-' %></td>
-                      <td><%= item.min_stock %></td>
+                      <td><%= formatQty(item.min_stock) %></td>
                       <td>
                         <div class="actions">
                           <a class="btn ghost" href="/items?edit=<%= item.id %>">Edit</a>

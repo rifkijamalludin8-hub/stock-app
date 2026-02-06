@@ -125,7 +125,7 @@
               <td><%= row.division_name %></td>
               <td><%= row.group_name %></td>
               <td><%= row.item_name %> - <%= row.expiry_date || '-' %></td>
-              <td><%= row.qty %></td>
+              <td><%= formatQty(row.qty) %></td>
               <% if (showPrice) { %><td><%= formatPrice(row.price_per_unit) %></td><% } %>
               <td><%= row.note || '-' %></td>
               <% if (canCreate) { %>

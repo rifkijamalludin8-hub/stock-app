@@ -3,19 +3,19 @@
 <div class="grid-4">
   <div class="card metric">
     <div class="metric-label">Total Item</div>
-    <div class="metric-value"><%= metrics.totalItems %></div>
+    <div class="metric-value"><%= formatQty(metrics.totalItems) %></div>
   </div>
   <div class="card metric">
     <div class="metric-label">Jenis Barang</div>
-    <div class="metric-value"><%= metrics.totalGroups %></div>
+    <div class="metric-value"><%= formatQty(metrics.totalGroups) %></div>
   </div>
   <div class="card metric">
     <div class="metric-label">Total User</div>
-    <div class="metric-value"><%= metrics.totalUsers %></div>
+    <div class="metric-value"><%= formatQty(metrics.totalUsers) %></div>
   </div>
   <div class="card metric accent">
     <div class="metric-label">Total Stock</div>
-    <div class="metric-value"><%= metrics.totalStock %></div>
+    <div class="metric-value"><%= formatQty(metrics.totalStock) %></div>
   </div>
 </div>
 
@@ -29,11 +29,11 @@
     </div>
     <div class="summary-row">
       <div class="summary-box in">Masuk</div>
-      <div class="summary-value"><%= metrics.inToday %></div>
+      <div class="summary-value"><%= formatQty(metrics.inToday) %></div>
     </div>
     <div class="summary-row">
       <div class="summary-box out">Keluar</div>
-      <div class="summary-value"><%= metrics.outToday %></div>
+      <div class="summary-value"><%= formatQty(metrics.outToday) %></div>
     </div>
     <div class="cta-row">
       <a class="btn primary" href="/transactions?type=IN">Input Barang Masuk</a>
@@ -55,9 +55,9 @@
           <li>
             <div>
               <strong><%= item.name %></strong>
-              <div class="muted">Min: <%= item.min_stock %></div>
+              <div class="muted">Min: <%= formatQty(item.min_stock) %></div>
             </div>
-            <div class="pill warning"><%= item.stock %></div>
+            <div class="pill warning"><%= formatQty(item.stock) %></div>
           </li>
         <% }) %>
       </ul>
@@ -90,7 +90,7 @@
             <td><%= t.txn_date %></td>
             <td><%= t.item_name %></td>
             <td><span class="pill <%= t.type === 'IN' ? 'in' : 'out' %>"><%= t.type %></span></td>
-            <td><%= t.qty %></td>
+            <td><%= formatQty(t.qty) %></td>
             <% if (showPrice) { %><td><%= formatPrice(t.price_per_unit) %></td><% } %>
           </tr>
         <% }) %>

@@ -14,8 +14,12 @@
         <input name="adj_date" type="date" value="<%= today %>" />
       </label>
       <label>
+        Cari Item
+        <input type="text" class="select-search" data-target="adj-item-select" placeholder="Ketik nama item..." />
+      </label>
+      <label>
         Item
-        <select name="item_id" required>
+        <select id="adj-item-select" name="item_id" required>
           <option value="">Pilih Item</option>
           <% items.forEach((item) => { %>
             <option value="<%= item.id %>"><%= item.group_name %> - <%= item.name %> - <%= item.expiry_date || '-' %></option>
@@ -76,7 +80,7 @@
             <tr>
               <td><%= a.adj_date %></td>
               <td><%= a.item_label %></td>
-              <td><%= a.qty_delta %></td>
+              <td><%= formatQty(a.qty_delta) %></td>
               <td><%= a.note || '-' %></td>
               <td><%= a.created_by_name || '-' %></td>
               <td><%= formatDateTime(a.created_at) %></td>

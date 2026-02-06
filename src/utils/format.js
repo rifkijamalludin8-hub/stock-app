@@ -18,6 +18,16 @@ function formatDateTime(value) {
   return parsed.format('YYYY-MM-DD HH:mm');
 }
 
+function formatQty(value) {
+  if (value === null || value === undefined || value === '') return '0';
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue)) return '0';
+  return new Intl.NumberFormat('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(numberValue);
+}
+
 function parsePrice(raw) {
   if (raw === null || raw === undefined) return null;
   if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
@@ -57,4 +67,4 @@ function parsePrice(raw) {
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
-module.exports = { formatPrice, formatDateTime, parsePrice };
+module.exports = { formatPrice, formatDateTime, formatQty, parsePrice };
