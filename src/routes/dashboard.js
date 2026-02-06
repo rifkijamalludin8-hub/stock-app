@@ -67,11 +67,12 @@ router.get('/', requireCompany, requireAuth, divisionAccess, async (req, res) =>
   )[0]?.qty;
 
   const recentTransactions = await db.query(
-    `SELECT t.id, t.type, t.qty, t.price_per_unit, t.txn_date, i.name AS item_name
+    `SELECT t.id, t.type, t.qty, t.price_per_unit, t.txn_date, i.name AS item_name, u.name AS created_by_name
      FROM transactions t
      JOIN items i ON i.id = t.item_id
      JOIN item_groups g ON g.id = i.group_id
      JOIN divisions d ON d.id = g.division_id
+     LEFT JOIN users u ON u.id = t.created_by
      WHERE t.company_id = $1 ${filter.clause}
      ORDER BY t.txn_date DESC, t.id DESC
      LIMIT 8`,

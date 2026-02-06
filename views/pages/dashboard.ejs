@@ -81,6 +81,7 @@
           <th>Item</th>
           <th>Tipe</th>
           <th>Qty</th>
+          <th>Dibuat Oleh</th>
           <% if (showPrice) { %><th>Harga/Unit</th><% } %>
         </tr>
       </thead>
@@ -91,6 +92,7 @@
             <td><%= t.item_name %></td>
             <td><span class="pill <%= t.type === 'IN' ? 'in' : 'out' %>"><%= t.type %></span></td>
             <td><%= formatQty(t.qty) %></td>
+            <td><%= t.created_by_name || '-' %></td>
             <% if (showPrice) { %><td><%= formatPrice(t.price_per_unit) %></td><% } %>
           </tr>
         <% }) %>

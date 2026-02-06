@@ -10,6 +10,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Work+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
 </head>
 <body>
+  <%
+    if (typeof formatDate !== 'function') {
+      formatDate = (value) => (value ? String(value) : '-');
+    }
+    if (typeof formatDateTime !== 'function') {
+      formatDateTime = (value) => (value ? String(value) : '-');
+    }
+    if (typeof formatQty !== 'function') {
+      formatQty = (value) => (value === null || value === undefined ? '0' : String(value));
+    }
+    if (typeof formatPrice !== 'function') {
+      formatPrice = (value) => (value === null || value === undefined ? '-' : String(value));
+    }
+  %>
   <div class="app">
     <aside class="sidebar">
       <div class="brand">
