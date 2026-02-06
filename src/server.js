@@ -19,6 +19,7 @@ const transactionsRoutes = require('./routes/transactions');
 const adjustmentsRoutes = require('./routes/adjustments');
 const usersRoutes = require('./routes/users');
 const reportsRoutes = require('./routes/reports');
+const mutationsRoutes = require('./routes/mutations');
 const exportsRoutes = require('./routes/exports');
 
 const app = express();
@@ -99,6 +100,7 @@ app.use(transactionsRoutes);
 app.use(adjustmentsRoutes);
 app.use(usersRoutes);
 app.use(reportsRoutes);
+app.use(mutationsRoutes);
 
 app.get('/forbidden', (req, res) => {
   res.render('pages/forbidden');

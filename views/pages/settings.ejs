@@ -37,6 +37,33 @@
       <button class="btn primary" type="submit">Kirim Backup Sekarang</button>
     </form>
   </div>
+
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <h3>Rebuild Saldo Awal</h3>
+        <p>Hitung ulang stock menjadi saldo awal dan hapus data lama.</p>
+      </div>
+    </div>
+    <p class="muted">
+      Tindakan ini akan:
+      <br/>1) Menghitung saldo awal per item pada tanggal cutoff.
+      <br/>2) Menghapus transaksi & adjustment sebelum tanggal cutoff.
+      <br/>3) Menghapus stock awal lama sebelum tanggal cutoff.
+    </p>
+    <p class="muted">Disarankan download backup terlebih dahulu.</p>
+    <form method="post" action="/opening/rebuild" class="form-inline">
+      <label>
+        Tanggal Cutoff
+        <input name="cutoff_date" type="date" required />
+      </label>
+      <label>
+        Ketik HAPUS
+        <input name="confirm_text" type="text" placeholder="HAPUS" required />
+      </label>
+      <button class="btn danger" type="submit">Rebuild & Hapus Data Lama</button>
+    </form>
+  </div>
 </div>
 
 <%- include('../partials/foot') %>

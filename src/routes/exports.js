@@ -6,6 +6,7 @@ const { exportCsv, exportExcel, exportPdf } = require('../utils/export');
 const { formatPrice, formatDateTime } = require('../utils/format');
 const { getReportRows } = require('../utils/report');
 const { getCurrentStockRows } = require('../utils/stock');
+const { getMutationRows } = require('../utils/mutations');
 
 const router = express.Router();
 
@@ -211,6 +212,37 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
       columns = columns.filter((col) => !['price_per_unit', 'stock_value'].includes(col.key));
       rows = rows.map(({ price_per_unit, stock_value, ...rest }) => rest);
     }
+    pdfOptions = {
+      layout: 'landscape',
+      bodyFontSize: 7.5,
+      headerFontSize: 7.5,
+      colPadding: 3,
+      headerLines: [
+        `Perusahaan: ${req.company ? req.company.name : '-'}`,
+        `Periode: ${start} s/d ${end}`,
+      ],
+    };
+  }
+
+  if (resource === 'mutations') {
+    const start = req.query.start;
+    const end = req.query.end;
+    const itemId = req.query.item_id ? Number(req.query.item_id) : null;
+    if (!start || !end) return res.status(400).send('Start/end wajib diisi');
+    title = 'Mutasi Item';
+    filename = `mutasi-item-${start}-sd-${end}`;
+    const { flatRows } = await getMutationRows(db, companyId, start, end, req.divisionIds, itemId);
+    columns = [
+      { header: 'Item', key: 'item_label', width: 36, pdfWidth: 140 },
+      { header: 'Tanggal', key: 'event_date', width: 14, pdfWidth: 60 },
+      { header: 'Tipe', key: 'type', width: 10, pdfWidth: 45 },
+      { header: 'Qty', key: 'qty', width: 10, pdfWidth: 40 },
+      { header: 'Saldo', key: 'saldo', width: 12, pdfWidth: 45 },
+      { header: 'Catatan', key: 'note', width: 30, pdfWidth: 100 },
+      { header: 'Dibuat Oleh', key: 'created_by_name', width: 20, pdfWidth: 70 },
+      { header: 'Dibuat', key: 'created_at', width: 20, pdfWidth: 70, format: formatDateTime },
+    ];
+    rows = flatRows;
     pdfOptions = {
       layout: 'landscape',
       bodyFontSize: 7.5,
