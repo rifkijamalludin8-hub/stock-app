@@ -178,7 +178,14 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
     const end = req.query.end;
     const divisionParam = req.query.division_id ? Number(req.query.division_id) : null;
     const isUser = req.session.user && req.session.user.role === 'user';
-    const reportDivisionIds = isUser && divisionParam ? [divisionParam] : req.divisionIds;
+    let reportDivisionIds = req.divisionIds;
+    if (divisionParam) {
+      if (isUser) {
+        reportDivisionIds = [divisionParam];
+      } else if (!req.divisionIds || req.divisionIds.includes(divisionParam)) {
+        reportDivisionIds = [divisionParam];
+      }
+    }
     if (!start || !end) return res.status(400).send('Start/end wajib diisi');
     title = 'Laporan Stock';
     filename = `laporan-stock-${start}-sd-${end}`;
