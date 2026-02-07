@@ -1,7 +1,8 @@
 <%- include('../partials/head', { pageTitle: 'Laporan Stock', page: 'reports' }) %>
 <%
   const _showDivisionFilter = typeof showDivisionFilter !== 'undefined' && showDivisionFilter;
-  const _divisionsList = Array.isArray(divisionsList) ? divisionsList : [];
+  const _divisionsList =
+    typeof divisionsList !== 'undefined' && Array.isArray(divisionsList) ? divisionsList : [];
   const _selectedDivisionId = typeof selectedDivisionId !== 'undefined' ? selectedDivisionId : '';
 %>
 
