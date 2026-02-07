@@ -1,4 +1,9 @@
 <%- include('../partials/head', { pageTitle: 'Laporan Stock', page: 'reports' }) %>
+<%
+  const _showDivisionFilter = typeof showDivisionFilter !== 'undefined' && showDivisionFilter;
+  const _divisionsList = Array.isArray(divisionsList) ? divisionsList : [];
+  const _selectedDivisionId = typeof selectedDivisionId !== 'undefined' ? selectedDivisionId : '';
+%>
 
 <div class="card">
   <div class="card-header">
@@ -16,13 +21,13 @@
       Tanggal Akhir
       <input name="end" type="date" value="<%= end %>" required />
     </label>
-    <% if (showDivisionFilter) { %>
+    <% if (_showDivisionFilter) { %>
       <label>
         Divisi
         <select name="division_id">
           <option value="">Semua</option>
-          <% divisionsList.forEach((div) => { %>
-            <option value="<%= div.id %>" <%= String(div.id) === String(selectedDivisionId || '') ? 'selected' : '' %>>
+          <% _divisionsList.forEach((div) => { %>
+            <option value="<%= div.id %>" <%= String(div.id) === String(_selectedDivisionId || '') ? 'selected' : '' %>>
               <%= div.name %>
             </option>
           <% }) %>
@@ -31,7 +36,7 @@
     <% } %>
     <button class="btn primary" type="submit">Tampilkan</button>
     <% if (rows.length > 0) { %>
-      <% const divisionQuery = showDivisionFilter && selectedDivisionId ? `&division_id=${selectedDivisionId}` : '' %>
+      <% const divisionQuery = _showDivisionFilter && _selectedDivisionId ? `&division_id=${_selectedDivisionId}` : '' %>
       <div class="export-row">
         <a class="btn ghost" href="/export/report?format=xlsx&start=<%= start %>&end=<%= end %><%= divisionQuery %>">Export Excel</a>
         <a class="btn ghost" href="/export/report?format=pdf&start=<%= start %>&end=<%= end %><%= divisionQuery %>">Export PDF</a>
