@@ -43,10 +43,19 @@ if (process.env.NODE_ENV === 'production') {
 
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, '..', 'views'));
-app.locals.formatPrice = formatPrice;
-app.locals.formatDateTime = formatDateTime;
-app.locals.formatDate = formatDate;
-app.locals.formatQty = formatQty;
+const safeFormatPrice =
+  typeof formatPrice === 'function' ? formatPrice : (value) => (value === null || value === undefined ? '-' : String(value));
+const safeFormatDateTime =
+  typeof formatDateTime === 'function' ? formatDateTime : (value) => (value ? String(value) : '-');
+const safeFormatDate =
+  typeof formatDate === 'function' ? formatDate : (value) => (value ? String(value) : '-');
+const safeFormatQty =
+  typeof formatQty === 'function' ? formatQty : (value) => (value === null || value === undefined ? '0' : String(value));
+
+app.locals.formatPrice = safeFormatPrice;
+app.locals.formatDateTime = safeFormatDateTime;
+app.locals.formatDate = safeFormatDate;
+app.locals.formatQty = safeFormatQty;
 
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
@@ -81,10 +90,10 @@ app.use(async (req, res, next) => {
   res.locals.currentYear = new Date().getFullYear();
   res.locals.requireSetupKey = Boolean(process.env.SETUP_KEY);
   res.locals.divisionWarning = null;
-  res.locals.formatPrice = formatPrice;
-  res.locals.formatDateTime = formatDateTime;
-  res.locals.formatDate = formatDate;
-  res.locals.formatQty = formatQty;
+  res.locals.formatPrice = safeFormatPrice;
+  res.locals.formatDateTime = safeFormatDateTime;
+  res.locals.formatDate = safeFormatDate;
+  res.locals.formatQty = safeFormatQty;
   next();
 });
 

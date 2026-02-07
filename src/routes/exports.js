@@ -176,10 +176,13 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
   if (resource === 'report') {
     const start = req.query.start;
     const end = req.query.end;
+    const divisionParam = req.query.division_id ? Number(req.query.division_id) : null;
+    const isUser = req.session.user && req.session.user.role === 'user';
+    const reportDivisionIds = isUser && divisionParam ? [divisionParam] : req.divisionIds;
     if (!start || !end) return res.status(400).send('Start/end wajib diisi');
     title = 'Laporan Stock';
     filename = `laporan-stock-${start}-sd-${end}`;
-    const reportRows = await getReportRows(db, companyId, start, end, req.divisionIds);
+    const reportRows = await getReportRows(db, companyId, start, end, reportDivisionIds);
     columns = [
       { header: 'Divisi', key: 'division_name', width: 22, pdfWidth: 70 },
       { header: 'Kelompok', key: 'group_name', width: 22, pdfWidth: 70 },

@@ -16,11 +16,25 @@
       Tanggal Akhir
       <input name="end" type="date" value="<%= end %>" required />
     </label>
+    <% if (showDivisionFilter) { %>
+      <label>
+        Divisi
+        <select name="division_id">
+          <option value="">Semua</option>
+          <% divisionsList.forEach((div) => { %>
+            <option value="<%= div.id %>" <%= String(div.id) === String(selectedDivisionId || '') ? 'selected' : '' %>>
+              <%= div.name %>
+            </option>
+          <% }) %>
+        </select>
+      </label>
+    <% } %>
     <button class="btn primary" type="submit">Tampilkan</button>
     <% if (rows.length > 0) { %>
+      <% const divisionQuery = showDivisionFilter && selectedDivisionId ? `&division_id=${selectedDivisionId}` : '' %>
       <div class="export-row">
-        <a class="btn ghost" href="/export/report?format=xlsx&start=<%= start %>&end=<%= end %>">Export Excel</a>
-        <a class="btn ghost" href="/export/report?format=pdf&start=<%= start %>&end=<%= end %>">Export PDF</a>
+        <a class="btn ghost" href="/export/report?format=xlsx&start=<%= start %>&end=<%= end %><%= divisionQuery %>">Export Excel</a>
+        <a class="btn ghost" href="/export/report?format=pdf&start=<%= start %>&end=<%= end %><%= divisionQuery %>">Export PDF</a>
       </div>
     <% } %>
   </form>
