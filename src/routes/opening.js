@@ -216,6 +216,24 @@ router.post(
   }
 );
 
+router.post('/opening/delete-all', requireCompany, requireAuth, requireRole('user'), async (req, res) => {
+  const confirmText = (req.body.confirm_text || '').trim();
+  if (confirmText !== 'HAPUS SEMUA STOCK AWAL') {
+    setFlash(req, 'error', 'Konfirmasi tidak sesuai. Ketik: HAPUS SEMUA STOCK AWAL.');
+    return res.redirect('/opening');
+  }
+  try {
+    const result = await req.db.query('DELETE FROM opening_balances WHERE company_id = $1', [
+      req.company.id,
+    ]);
+    const count = Number(result?.rowCount || 0);
+    setFlash(req, 'success', `Berhasil menghapus ${count} data stock awal.`);
+  } catch (err) {
+    setFlash(req, 'error', 'Gagal menghapus stock awal.');
+  }
+  return res.redirect('/opening');
+});
+
 router.post('/opening/import', requireCompany, requireAuth, requireRole('user'), divisionAccess, (req, res) => {
   upload.single('file')(req, res, async (err) => {
     if (err) {

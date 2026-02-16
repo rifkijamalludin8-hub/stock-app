@@ -92,6 +92,19 @@
           <button class="btn ghost" type="submit">Import Stock Awal</button>
         </form>
       </div>
+      <div class="section-block">
+        <div class="section-title">Hapus Semua Stock Awal</div>
+        <div class="muted">
+          Akan menghapus semua data stock awal untuk perusahaan ini.
+        </div>
+        <form class="form-stack" method="post" action="/opening/delete-all" onsubmit="return confirm('Hapus semua stock awal?')">
+          <label>
+            Ketik: HAPUS SEMUA STOCK AWAL
+            <input name="confirm_text" required />
+          </label>
+          <button class="btn danger" type="submit">Hapus Semua Stock Awal</button>
+        </form>
+      </div>
     <% } else { %>
       <div class="empty-state">Hanya user yang bisa input stock awal.</div>
     <% } %>
