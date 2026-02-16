@@ -94,6 +94,21 @@
       </label>
       <button class="btn ghost" type="submit">Import Excel</button>
     </form>
+    <% if (user && user.role === 'user') { %>
+      <div class="section-block">
+        <div class="section-sub">Hapus Semua Item</div>
+        <div class="muted">
+          Hanya item tanpa transaksi yang bisa dihapus. Item dengan riwayat transaksi akan tetap ada.
+        </div>
+        <form class="form-stack" method="post" action="/items/delete-all" onsubmit="return confirm('Hapus semua item yang aman?')">
+          <label>
+            Ketik: HAPUS SEMUA ITEM
+            <input name="confirm_text" required />
+          </label>
+          <button class="btn danger" type="submit">Hapus Semua Item</button>
+        </form>
+      </div>
+    <% } %>
   </div>
 
   <div class="card">

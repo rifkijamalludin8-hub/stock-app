@@ -212,6 +212,63 @@ router.post('/items/:id/delete', requireCompany, requireAuth, divisionAccess, as
   res.redirect('/items');
 });
 
+router.post('/items/delete-all', requireCompany, requireAuth, divisionAccess, async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'user') {
+    setFlash(req, 'error', 'Hanya user utama yang bisa menghapus semua item.');
+    return res.redirect('/items');
+  }
+  const confirmText = (req.body.confirm_text || '').trim();
+  if (confirmText !== 'HAPUS SEMUA ITEM') {
+    setFlash(req, 'error', 'Konfirmasi tidak sesuai. Ketik: HAPUS SEMUA ITEM.');
+    return res.redirect('/items');
+  }
+  const filter = buildDivisionFilter(req.divisionIds, 'd.id', 2);
+  const items = await req.db.query(
+    `SELECT i.id
+     FROM items i
+     JOIN item_groups g ON g.id = i.group_id
+     JOIN divisions d ON d.id = g.division_id
+     WHERE i.company_id = $1 ${filter.clause}`,
+    [req.company.id, ...filter.params]
+  );
+  const itemIds = items.map((row) => Number(row.id)).filter(Boolean);
+  if (itemIds.length === 0) {
+    setFlash(req, 'info', 'Tidak ada item untuk dihapus.');
+    return res.redirect('/items');
+  }
+
+  const historyRows = await req.db.query(
+    `SELECT item_id, COUNT(*)::int AS count
+     FROM (
+       SELECT item_id FROM transactions WHERE company_id = $1 AND item_id = ANY($2)
+       UNION ALL
+       SELECT item_id FROM adjustments WHERE company_id = $1 AND item_id = ANY($2)
+       UNION ALL
+       SELECT item_id FROM opening_balances WHERE company_id = $1 AND item_id = ANY($2)
+     ) h
+     GROUP BY item_id`,
+    [req.company.id, itemIds]
+  );
+  const blockedSet = new Set(historyRows.map((row) => Number(row.item_id)));
+  const deletableIds = itemIds.filter((id) => !blockedSet.has(id));
+
+  if (deletableIds.length === 0) {
+    setFlash(req, 'error', 'Semua item punya riwayat transaksi. Tidak bisa dihapus.');
+    return res.redirect('/items');
+  }
+
+  await req.db.query('DELETE FROM items WHERE company_id = $1 AND id = ANY($2)', [
+    req.company.id,
+    deletableIds,
+  ]);
+  const blockedCount = itemIds.length - deletableIds.length;
+  const message = blockedCount
+    ? `Berhasil hapus ${deletableIds.length} item. ${blockedCount} item tidak dihapus karena ada transaksi.`
+    : `Berhasil hapus ${deletableIds.length} item.`;
+  setFlash(req, 'success', message);
+  return res.redirect('/items');
+});
+
 router.post('/items/import', requireCompany, requireAuth, divisionAccess, (req, res) => {
   excelUpload.single('file')(req, res, async (err) => {
     if (err) {
