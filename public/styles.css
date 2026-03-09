@@ -679,6 +679,21 @@ th {
   color: var(--muted);
 }
 
+.bulk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px 16px;
+}
+
+.bulk-form {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
 @media (max-width: 600px) {
   .form-inline {
     flex-direction: column;

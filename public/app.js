@@ -60,3 +60,35 @@ document.querySelectorAll('.select-search').forEach((input) => {
     render(input.value || '');
   });
 });
+
+const bulkForm = document.querySelector('[data-bulk-form="transactions"]');
+if (bulkForm) {
+  const selectAll = document.querySelector('[data-select-all]');
+  const checkboxes = Array.from(document.querySelectorAll('[data-row-select]'));
+  const deleteBtn = bulkForm.querySelector('[data-bulk-delete]');
+
+  const updateBulkState = () => {
+    const anyChecked = checkboxes.some((cb) => cb.checked);
+    if (deleteBtn) deleteBtn.disabled = !anyChecked;
+    if (selectAll) {
+      const allChecked = checkboxes.length > 0 && checkboxes.every((cb) => cb.checked);
+      selectAll.checked = allChecked;
+      selectAll.indeterminate = !allChecked && anyChecked;
+    }
+  };
+
+  if (selectAll) {
+    selectAll.addEventListener('change', () => {
+      checkboxes.forEach((cb) => {
+        cb.checked = selectAll.checked;
+      });
+      updateBulkState();
+    });
+  }
+
+  checkboxes.forEach((cb) => {
+    cb.addEventListener('change', updateBulkState);
+  });
+
+  updateBulkState();
+}
