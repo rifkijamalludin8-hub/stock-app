@@ -284,8 +284,9 @@ async function exportMutationExcel(res, filename, companyName, startDate, endDat
 }
 
 function exportMutationPdf(res, filename, title, companyName, startDate, endDate, groupedRows) {
+  const CM = 28.35;
   const doc = new PDFDocument({
-    margin: 22,
+    margin: CM,
     size: 'A4',
     layout: 'portrait',
   });
@@ -296,43 +297,43 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
   const sections = normalizeMutationRows(groupedRows);
   const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
   const startX = doc.page.margins.left;
-  const columns = [
-    { label: 'TANGGAL', width: 46, align: 'left' },
-    { label: 'KETERANGAN', width: 150, align: 'left' },
-    { label: 'IN', width: 30, align: 'center' },
-    { label: 'OUT', width: 30, align: 'center' },
-    { label: 'ADJ', width: 30, align: 'center' },
-    { label: 'SALDO', width: 36, align: 'center' },
-    { label: 'SATUAN', width: 38, align: 'left' },
-    { label: 'DIBUAT', width: 56, align: 'left' },
-    { label: 'TGL BUAT', width: 58, align: 'left' },
+  const columnSpec = [
+    { label: 'TANGGAL', width: 44, align: 'left' },
+    { label: 'KETERANGAN (CATATAN)', width: 90, align: 'left' },
+    { label: 'IN', width: 18, align: 'center' },
+    { label: 'OUT', width: 18, align: 'center' },
+    { label: 'ADJ', width: 18, align: 'center' },
+    { label: 'SALDO', width: 22, align: 'center' },
+    { label: 'SATUAN', width: 22, align: 'left' },
+    { label: 'DIBUAT', width: 34, align: 'left' },
+    { label: 'TANGGAL BUAT', width: 42, align: 'left' },
   ];
+  const scale = pageWidth / columnSpec.reduce((sum, col) => sum + col.width, 0);
+  const columns = columnSpec.map((col) => ({
+    ...col,
+    width: Math.floor(col.width * scale * 100) / 100,
+  }));
 
   const drawRow = (y, values, options = {}) => {
     let currentX = startX;
-    let rowHeight = 16;
+    let rowHeight = options.minHeight || 13;
     values.forEach((value, idx) => {
       const text = value === null || value === undefined ? '' : String(value);
       const height = doc.heightOfString(text, {
-        width: columns[idx].width - 6,
+        width: columns[idx].width - 4,
         align: columns[idx].align,
-      }) + 8;
+      }) + 4;
       rowHeight = Math.max(rowHeight, height);
     });
 
     values.forEach((value, idx) => {
       doc.rect(currentX, y, columns[idx].width, rowHeight).stroke('#444');
-      if (options.fillHeader) {
-        doc.save();
-        doc.rect(currentX, y, columns[idx].width, rowHeight).fillAndStroke('#efefef', '#444');
-        doc.restore();
-      }
       doc
         .font(options.bold ? 'Helvetica-Bold' : 'Helvetica')
-        .fontSize(options.fontSize || 6.8)
+        .fontSize(options.fontSize || 6.4)
         .fillColor('#111')
-        .text(value === null || value === undefined ? '' : String(value), currentX + 3, y + 4, {
-          width: columns[idx].width - 6,
+        .text(value === null || value === undefined ? '' : String(value), currentX + 2, y + 2, {
+          width: columns[idx].width - 4,
           align: columns[idx].align,
         });
       currentX += columns[idx].width;
@@ -343,51 +344,51 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
 
   const pageBottom = () => doc.page.height - doc.page.margins.bottom;
   const addMutationPage = () => {
-    doc.addPage({ size: 'A4', layout: 'portrait', margin: 22 });
+    doc.addPage({ size: 'A4', layout: 'portrait', margin: CM });
     return doc.y;
   };
 
-  doc.font('Helvetica-Bold').fontSize(12).text(String(companyName || '-').toUpperCase(), {
+  doc.font('Helvetica-Bold').fontSize(10.5).text(String(companyName || '-').toUpperCase(), {
     align: 'center',
   });
-  doc.moveDown(0.2);
-  doc.font('Helvetica-Bold').fontSize(11).text('MUTASI BARANG', {
+  doc.moveDown(0.1);
+  doc.font('Helvetica-Bold').fontSize(9.5).text('MUTASI BARANG', {
     align: 'center',
   });
-  doc.moveDown(0.15);
-  doc.font('Helvetica-Bold').fontSize(10).text(
+  doc.moveDown(0.05);
+  doc.font('Helvetica-Bold').fontSize(8.5).text(
     `PERIODE ${formatMutationExportDate(startDate)} - ${formatMutationExportDate(endDate)}`,
     { align: 'center' }
   );
-  doc.moveDown(0.7);
+  doc.moveDown(0.45);
 
   const drawItemHeader = (sectionName, itemSection, includeDivisionTitle = false) => {
     if (includeDivisionTitle) {
-      doc.font('Helvetica-Bold').fontSize(10).text(`DIVISI: ${sectionName}`, startX, doc.y);
-      doc.moveDown(0.55);
+      doc.font('Helvetica-Bold').fontSize(8.5).text(`DIVISI: ${sectionName}`, startX, doc.y);
+      doc.moveDown(0.35);
     }
     const topY = doc.y;
-    const rightLabelX = startX + 380;
-    const rightValueX = rightLabelX + 82;
-    const rightValueWidth = Math.max(80, startX + pageWidth - rightValueX);
-    doc.font('Helvetica-Bold').fontSize(8.5).text('NAMA:', startX, topY);
-    doc.font('Helvetica-Bold').fontSize(8.5).text(itemSection.itemName, startX + 46, topY, {
-      width: rightLabelX - startX - 52,
+    const rightLabelX = startX + pageWidth * 0.66;
+    const rightValueX = rightLabelX + 72;
+    const rightValueWidth = Math.max(70, startX + pageWidth - rightValueX);
+    doc.font('Helvetica-Bold').fontSize(7).text('NAMA:', startX, topY);
+    doc.font('Helvetica-Bold').fontSize(7).text(itemSection.itemName, startX + 42, topY, {
+      width: rightLabelX - startX - 48,
     });
-    doc.font('Helvetica-Bold').fontSize(8.5).text('Jenis Barang :', rightLabelX, topY);
-    doc.font('Helvetica-Bold').fontSize(8.5).text(itemSection.groupName, rightValueX, topY, {
+    doc.font('Helvetica-Bold').fontSize(7).text('Jenis Barang :', rightLabelX, topY);
+    doc.font('Helvetica-Bold').fontSize(7).text(itemSection.groupName, rightValueX, topY, {
       width: rightValueWidth,
     });
 
-    const secondY = topY + 14;
-    doc.font('Helvetica-Bold').fontSize(8.5).text('EXP DATE:', startX, secondY);
-    doc.font('Helvetica-Bold').fontSize(8.5).text(itemSection.expiryDate, startX + 46, secondY);
+    const secondY = topY + 11;
+    doc.font('Helvetica-Bold').fontSize(7).text('EXP DATE :', startX, secondY);
+    doc.font('Helvetica-Bold').fontSize(7).text(itemSection.expiryDate, startX + 42, secondY);
 
-    let y = secondY + 16;
+    let y = secondY + 10;
     y += drawRow(
       y,
       columns.map((col) => col.label),
-      { fillHeader: true, bold: true, fontSize: 7.2 }
+      { bold: true, fontSize: 6.4, minHeight: 14 }
     );
     return y;
   };
@@ -396,17 +397,17 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
     if (doc.y + 50 > pageBottom()) {
       addMutationPage();
     }
-    doc.font('Helvetica-Bold').fontSize(11).text(`DIVISI: ${section.divisionName}`, startX, doc.y);
-    doc.moveDown(0.7);
+    doc.font('Helvetica-Bold').fontSize(8.5).text(`DIVISI: ${section.divisionName}`, startX, doc.y);
+    doc.moveDown(0.35);
 
     section.items.forEach((itemSection) => {
-      if (doc.y + 110 > pageBottom()) {
+      if (doc.y + 80 > pageBottom()) {
         addMutationPage();
       }
       let y = drawItemHeader(section.divisionName, itemSection, false);
 
       itemSection.rows.forEach((entry) => {
-        if (y + 22 > pageBottom()) {
+        if (y + 16 > pageBottom()) {
           addMutationPage();
           y = drawItemHeader(section.divisionName, itemSection, false);
         }
@@ -421,10 +422,10 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
           entry.createdBy,
           entry.createdAt,
         ];
-        y += drawRow(y, values, { fontSize: 6.8 });
+        y += drawRow(y, values, { fontSize: 6.3, minHeight: 13 });
       });
 
-      if (y + 22 > pageBottom()) {
+      if (y + 16 > pageBottom()) {
         addMutationPage();
         y = drawItemHeader(section.divisionName, itemSection, false);
       }
@@ -439,8 +440,8 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
         '',
         '',
       ];
-      y += drawRow(y, totalValues, { bold: true, fontSize: 6.8 });
-      doc.y = y + 14;
+      y += drawRow(y, totalValues, { bold: true, fontSize: 6.3, minHeight: 13 });
+      doc.y = y + 8;
     });
   });
 
