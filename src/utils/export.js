@@ -128,23 +128,24 @@ async function exportMutationExcel(res, filename, companyName, startDate, endDat
   const workbook = new ExcelJS.Workbook();
   const sheet = workbook.addWorksheet('Mutasi');
   const columns = [
-    { key: 'date', width: 13 },
-    { key: 'note', width: 28 },
-    { key: 'inQty', width: 10 },
-    { key: 'outQty', width: 10 },
-    { key: 'adjQty', width: 10 },
-    { key: 'saldo', width: 10 },
-    { key: 'unit', width: 12 },
-    { key: 'createdBy', width: 18 },
-    { key: 'createdAt', width: 14 },
+    { key: 'date', width: 12 },
+    { key: 'note', width: 26 },
+    { key: 'inQty', width: 7 },
+    { key: 'outQty', width: 7 },
+    { key: 'adjQty', width: 7 },
+    { key: 'saldo', width: 8 },
+    { key: 'unit', width: 8 },
+    { key: 'createdBy', width: 10 },
+    { key: 'createdAt', width: 12 },
   ];
   sheet.columns = columns;
   sheet.pageSetup = {
-    orientation: 'landscape',
+    orientation: 'portrait',
     paperSize: 9,
     fitToPage: true,
     fitToWidth: 1,
     fitToHeight: 0,
+    horizontalCentered: true,
   };
   sheet.views = [{ showGridLines: true }];
 
@@ -153,13 +154,18 @@ async function exportMutationExcel(res, filename, companyName, startDate, endDat
   let rowIndex = 1;
   const lastCol = 'I';
   sheet.mergeCells(`A${rowIndex}:${lastCol}${rowIndex}`);
-  sheet.getCell(`A${rowIndex}`).value = `(${String(companyName || '-').toUpperCase()})`;
+  sheet.getCell(`A${rowIndex}`).value = String(companyName || '-').toUpperCase();
   sheet.getCell(`A${rowIndex}`).font = { bold: true, size: 14 };
   sheet.getCell(`A${rowIndex}`).alignment = { horizontal: 'center' };
   rowIndex += 1;
   sheet.mergeCells(`A${rowIndex}:${lastCol}${rowIndex}`);
-  sheet.getCell(`A${rowIndex}`).value = `(PERIODE ${formatMutationExportDate(startDate)} - ${formatMutationExportDate(endDate)})`;
+  sheet.getCell(`A${rowIndex}`).value = 'MUTASI BARANG';
   sheet.getCell(`A${rowIndex}`).font = { bold: true, size: 12 };
+  sheet.getCell(`A${rowIndex}`).alignment = { horizontal: 'center' };
+  rowIndex += 1;
+  sheet.mergeCells(`A${rowIndex}:${lastCol}${rowIndex}`);
+  sheet.getCell(`A${rowIndex}`).value = `PERIODE ${formatMutationExportDate(startDate)} - ${formatMutationExportDate(endDate)}`;
+  sheet.getCell(`A${rowIndex}`).font = { bold: true, size: 11 };
   sheet.getCell(`A${rowIndex}`).alignment = { horizontal: 'center' };
   rowIndex += 2;
 
@@ -184,34 +190,34 @@ async function exportMutationExcel(res, filename, companyName, startDate, endDat
 
   sections.forEach((section) => {
     sheet.getCell(`A${rowIndex}`).value = 'DIVISI :';
-    sheet.getCell(`A${rowIndex}`).font = { bold: true, size: 12 };
+    sheet.getCell(`A${rowIndex}`).font = { bold: true, size: 11 };
     sheet.getCell(`B${rowIndex}`).value = section.divisionName;
-    sheet.getCell(`B${rowIndex}`).font = { bold: true, size: 12 };
+    sheet.getCell(`B${rowIndex}`).font = { bold: true, size: 11 };
     rowIndex += 2;
 
     section.items.forEach((itemSection) => {
       sheet.getCell(`A${rowIndex}`).value = 'NAMA :';
-      sheet.getCell(`A${rowIndex}`).font = { bold: true };
+      sheet.getCell(`A${rowIndex}`).font = { bold: true, size: 10 };
       sheet.getCell(`B${rowIndex}`).value = itemSection.itemName;
-      sheet.getCell(`B${rowIndex}`).font = { bold: true };
+      sheet.getCell(`B${rowIndex}`).font = { bold: true, size: 10 };
       sheet.getCell(`G${rowIndex}`).value = 'Jenis Barang :';
-      sheet.getCell(`G${rowIndex}`).font = { bold: true };
+      sheet.getCell(`G${rowIndex}`).font = { bold: true, size: 10 };
       sheet.getCell(`H${rowIndex}`).value = itemSection.groupName;
-      sheet.getCell(`H${rowIndex}`).font = { bold: true };
+      sheet.getCell(`H${rowIndex}`).font = { bold: true, size: 10 };
       sheet.mergeCells(`H${rowIndex}:I${rowIndex}`);
 
       rowIndex += 1;
       sheet.getCell(`A${rowIndex}`).value = 'EXP DATE :';
-      sheet.getCell(`A${rowIndex}`).font = { bold: true };
+      sheet.getCell(`A${rowIndex}`).font = { bold: true, size: 10 };
       sheet.getCell(`B${rowIndex}`).value = itemSection.expiryDate;
-      sheet.getCell(`B${rowIndex}`).font = { bold: true };
+      sheet.getCell(`B${rowIndex}`).font = { bold: true, size: 10 };
       rowIndex += 1;
 
       const headerRow = sheet.getRow(rowIndex);
       headerLabels.forEach((label, idx) => {
         const cell = headerRow.getCell(idx + 1);
         cell.value = label;
-        cell.font = { bold: true, size: 10 };
+        cell.font = { bold: true, size: 9 };
         cell.alignment = { horizontal: idx === 2 || idx === 3 || idx === 4 || idx === 5 ? 'center' : 'left' };
         cell.fill = {
           type: 'pattern',
@@ -239,6 +245,7 @@ async function exportMutationExcel(res, filename, companyName, startDate, endDat
           const cell = row.getCell(idx + 1);
           cell.value = value;
           cell.border = thinBorder;
+          cell.font = { size: 9 };
           cell.alignment = {
             horizontal: idx >= 2 && idx <= 5 ? 'center' : 'left',
           };
@@ -255,7 +262,7 @@ async function exportMutationExcel(res, filename, companyName, startDate, endDat
       totalRow.getCell(6).value = Number(itemSection.totals.saldo || 0);
       for (let idx = 1; idx <= 9; idx += 1) {
         const cell = totalRow.getCell(idx);
-        cell.font = { bold: true };
+        cell.font = { bold: true, size: 9 };
         cell.border = thinBorder;
         cell.alignment = { horizontal: idx >= 3 && idx <= 6 ? 'center' : 'left' };
       }
@@ -278,7 +285,7 @@ async function exportMutationExcel(res, filename, companyName, startDate, endDat
 
 function exportMutationPdf(res, filename, title, companyName, startDate, endDate, groupedRows) {
   const doc = new PDFDocument({
-    margin: 24,
+    margin: 22,
     size: 'A4',
     layout: 'portrait',
   });
@@ -290,20 +297,20 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
   const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
   const startX = doc.page.margins.left;
   const columns = [
-    { label: 'TANGGAL', width: 48, align: 'left' },
-    { label: 'KETERANGAN', width: 140, align: 'left' },
-    { label: 'IN', width: 32, align: 'center' },
-    { label: 'OUT', width: 32, align: 'center' },
-    { label: 'ADJ', width: 32, align: 'center' },
-    { label: 'SALDO', width: 38, align: 'center' },
+    { label: 'TANGGAL', width: 46, align: 'left' },
+    { label: 'KETERANGAN', width: 150, align: 'left' },
+    { label: 'IN', width: 30, align: 'center' },
+    { label: 'OUT', width: 30, align: 'center' },
+    { label: 'ADJ', width: 30, align: 'center' },
+    { label: 'SALDO', width: 36, align: 'center' },
     { label: 'SATUAN', width: 38, align: 'left' },
-    { label: 'DIBUAT', width: 55, align: 'left' },
-    { label: 'TGL BUAT', width: 55, align: 'left' },
+    { label: 'DIBUAT', width: 56, align: 'left' },
+    { label: 'TGL BUAT', width: 58, align: 'left' },
   ];
 
   const drawRow = (y, values, options = {}) => {
     let currentX = startX;
-    let rowHeight = 18;
+    let rowHeight = 16;
     values.forEach((value, idx) => {
       const text = value === null || value === undefined ? '' : String(value);
       const height = doc.heightOfString(text, {
@@ -322,7 +329,7 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
       }
       doc
         .font(options.bold ? 'Helvetica-Bold' : 'Helvetica')
-        .fontSize(options.fontSize || 7)
+        .fontSize(options.fontSize || 6.8)
         .fillColor('#111')
         .text(value === null || value === undefined ? '' : String(value), currentX + 3, y + 4, {
           width: columns[idx].width - 6,
@@ -336,39 +343,51 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
 
   const pageBottom = () => doc.page.height - doc.page.margins.bottom;
   const addMutationPage = () => {
-    doc.addPage({ size: 'A4', layout: 'landscape', margin: 24 });
+    doc.addPage({ size: 'A4', layout: 'portrait', margin: 22 });
     return doc.y;
   };
 
-  doc.font('Helvetica-Bold').fontSize(14).text(String(companyName || '-').toUpperCase(), {
+  doc.font('Helvetica-Bold').fontSize(12).text(String(companyName || '-').toUpperCase(), {
     align: 'center',
   });
   doc.moveDown(0.2);
-  doc.font('Helvetica-Bold').fontSize(12).text(`PERIODE ${formatMutationExportDate(startDate)} - ${formatMutationExportDate(endDate)}`, {
+  doc.font('Helvetica-Bold').fontSize(11).text('MUTASI BARANG', {
     align: 'center',
   });
-  doc.moveDown(0.8);
+  doc.moveDown(0.15);
+  doc.font('Helvetica-Bold').fontSize(10).text(
+    `PERIODE ${formatMutationExportDate(startDate)} - ${formatMutationExportDate(endDate)}`,
+    { align: 'center' }
+  );
+  doc.moveDown(0.7);
 
   const drawItemHeader = (sectionName, itemSection, includeDivisionTitle = false) => {
     if (includeDivisionTitle) {
-      doc.font('Helvetica-Bold').fontSize(11).text(`DIVISI: ${sectionName}`, startX, doc.y);
-      doc.moveDown(0.7);
+      doc.font('Helvetica-Bold').fontSize(10).text(`DIVISI: ${sectionName}`, startX, doc.y);
+      doc.moveDown(0.55);
     }
     const topY = doc.y;
-    doc.font('Helvetica-Bold').fontSize(9).text('NAMA:', startX, topY);
-    doc.font('Helvetica-Bold').fontSize(9).text(itemSection.itemName, startX + 48, topY);
-    doc.font('Helvetica-Bold').fontSize(9).text('Jenis Barang :', startX + 430, topY);
-    doc.font('Helvetica-Bold').fontSize(9).text(itemSection.groupName, startX + 515, topY);
+    const rightLabelX = startX + 380;
+    const rightValueX = rightLabelX + 82;
+    const rightValueWidth = Math.max(80, startX + pageWidth - rightValueX);
+    doc.font('Helvetica-Bold').fontSize(8.5).text('NAMA:', startX, topY);
+    doc.font('Helvetica-Bold').fontSize(8.5).text(itemSection.itemName, startX + 46, topY, {
+      width: rightLabelX - startX - 52,
+    });
+    doc.font('Helvetica-Bold').fontSize(8.5).text('Jenis Barang :', rightLabelX, topY);
+    doc.font('Helvetica-Bold').fontSize(8.5).text(itemSection.groupName, rightValueX, topY, {
+      width: rightValueWidth,
+    });
 
     const secondY = topY + 14;
-    doc.font('Helvetica-Bold').fontSize(9).text('EXP DATE:', startX, secondY);
-    doc.font('Helvetica-Bold').fontSize(9).text(itemSection.expiryDate, startX + 48, secondY);
+    doc.font('Helvetica-Bold').fontSize(8.5).text('EXP DATE:', startX, secondY);
+    doc.font('Helvetica-Bold').fontSize(8.5).text(itemSection.expiryDate, startX + 46, secondY);
 
-    let y = secondY + 18;
+    let y = secondY + 16;
     y += drawRow(
       y,
       columns.map((col) => col.label),
-      { fillHeader: true, bold: true, fontSize: 8 }
+      { fillHeader: true, bold: true, fontSize: 7.2 }
     );
     return y;
   };
@@ -402,7 +421,7 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
           entry.createdBy,
           entry.createdAt,
         ];
-        y += drawRow(y, values, { fontSize: 8 });
+        y += drawRow(y, values, { fontSize: 6.8 });
       });
 
       if (y + 22 > pageBottom()) {
@@ -420,8 +439,8 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
         '',
         '',
       ];
-      y += drawRow(y, totalValues, { bold: true, fontSize: 8 });
-      doc.y = y + 16;
+      y += drawRow(y, totalValues, { bold: true, fontSize: 6.8 });
+      doc.y = y + 14;
     });
   });
 
