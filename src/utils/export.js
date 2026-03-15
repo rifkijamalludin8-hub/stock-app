@@ -280,7 +280,7 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
   const doc = new PDFDocument({
     margin: 24,
     size: 'A4',
-    layout: 'landscape',
+    layout: 'portrait',
   });
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
@@ -290,15 +290,15 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
   const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
   const startX = doc.page.margins.left;
   const columns = [
-    { label: 'TANGGAL', width: 58, align: 'left' },
-    { label: 'KETERANGAN (CATATAN)', width: 170, align: 'left' },
-    { label: 'IN', width: 42, align: 'center' },
-    { label: 'OUT', width: 42, align: 'center' },
-    { label: 'ADJ', width: 42, align: 'center' },
-    { label: 'SALDO', width: 50, align: 'center' },
-    { label: 'SATUAN', width: 48, align: 'left' },
-    { label: 'DIBUAT', width: 70, align: 'left' },
-    { label: 'TANGGAL BUAT', width: 62, align: 'left' },
+    { label: 'TANGGAL', width: 48, align: 'left' },
+    { label: 'KETERANGAN', width: 140, align: 'left' },
+    { label: 'IN', width: 32, align: 'center' },
+    { label: 'OUT', width: 32, align: 'center' },
+    { label: 'ADJ', width: 32, align: 'center' },
+    { label: 'SALDO', width: 38, align: 'center' },
+    { label: 'SATUAN', width: 38, align: 'left' },
+    { label: 'DIBUAT', width: 55, align: 'left' },
+    { label: 'TGL BUAT', width: 55, align: 'left' },
   ];
 
   const drawRow = (y, values, options = {}) => {
@@ -322,7 +322,7 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
       }
       doc
         .font(options.bold ? 'Helvetica-Bold' : 'Helvetica')
-        .fontSize(options.fontSize || 8)
+        .fontSize(options.fontSize || 7)
         .fillColor('#111')
         .text(value === null || value === undefined ? '' : String(value), currentX + 3, y + 4, {
           width: columns[idx].width - 6,
@@ -340,11 +340,11 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
     return doc.y;
   };
 
-  doc.font('Helvetica-Bold').fontSize(14).text(`(${String(companyName || '-').toUpperCase()})`, {
+  doc.font('Helvetica-Bold').fontSize(14).text(String(companyName || '-').toUpperCase(), {
     align: 'center',
   });
   doc.moveDown(0.2);
-  doc.font('Helvetica-Bold').fontSize(12).text(`(PERIODE ${formatMutationExportDate(startDate)} - ${formatMutationExportDate(endDate)})`, {
+  doc.font('Helvetica-Bold').fontSize(12).text(`PERIODE ${formatMutationExportDate(startDate)} - ${formatMutationExportDate(endDate)}`, {
     align: 'center',
   });
   doc.moveDown(0.8);
@@ -383,15 +383,13 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
     section.items.forEach((itemSection) => {
       if (doc.y + 110 > pageBottom()) {
         addMutationPage();
-        doc.font('Helvetica-Bold').fontSize(11).text(`DIVISI: ${section.divisionName}`, startX, doc.y);
-        doc.moveDown(0.7);
       }
       let y = drawItemHeader(section.divisionName, itemSection, false);
 
       itemSection.rows.forEach((entry) => {
         if (y + 22 > pageBottom()) {
           addMutationPage();
-          y = drawItemHeader(section.divisionName, itemSection, true);
+          y = drawItemHeader(section.divisionName, itemSection, false);
         }
         const values = [
           entry.date,
@@ -409,7 +407,7 @@ function exportMutationPdf(res, filename, title, companyName, startDate, endDate
 
       if (y + 22 > pageBottom()) {
         addMutationPage();
-        y = drawItemHeader(section.divisionName, itemSection, true);
+        y = drawItemHeader(section.divisionName, itemSection, false);
       }
       const totalValues = [
         '',
