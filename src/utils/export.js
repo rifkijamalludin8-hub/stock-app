@@ -1,5 +1,6 @@
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
+const dayjs = require('dayjs');
 
 function toCsvValue(value) {
   if (value === null || value === undefined) return '';
@@ -47,6 +48,386 @@ async function exportExcel(res, filename, columns, rows) {
   res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
   await workbook.xlsx.write(res);
   res.end();
+}
+
+function formatMutationExportDate(value) {
+  if (!value) return '-';
+  const parsed = dayjs(value);
+  if (!parsed.isValid()) return String(value);
+  return parsed.format('DD/MM/YY');
+}
+
+function formatMutationQty(value) {
+  const numberValue = Number(value || 0);
+  if (!Number.isFinite(numberValue)) return '';
+  return new Intl.NumberFormat('id-ID', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(numberValue);
+}
+
+function normalizeMutationRows(groupedRows) {
+  const sections = [];
+  const divisionMap = new Map();
+
+  groupedRows.forEach(({ item, rows }) => {
+    const divisionName = item.division_name || '-';
+    if (!divisionMap.has(divisionName)) {
+      const section = { divisionName, items: [] };
+      divisionMap.set(divisionName, section);
+      sections.push(section);
+    }
+
+    const normalizedRows = rows.map((row) => {
+      const type = String(row.type || '').toUpperCase();
+      const isOpening = type === 'SALDO AWAL';
+      const isIn = type === 'IN';
+      const isOut = type === 'OUT';
+      const isAdj = type === 'ADJ' || type === 'OPENING';
+      const note = isOpening
+        ? 'SALDO AWAL'
+        : row.note || (type === 'OPENING' ? 'STOCK AWAL' : type);
+
+      return {
+        date: formatMutationExportDate(row.event_date),
+        note,
+        inQty: isIn ? Number(row.qty || 0) : null,
+        outQty: isOut ? Number(row.qty || 0) : null,
+        adjQty: isAdj ? Number(row.qty || 0) : null,
+        saldo: Number(row.saldo || 0),
+        unit: item.unit || '',
+        createdBy: row.created_by_name || '-',
+        createdAt: row.created_at ? formatMutationExportDate(row.created_at) : '-',
+      };
+    });
+
+    const totals = normalizedRows.reduce(
+      (acc, row) => {
+        acc.inQty += Number(row.inQty || 0);
+        acc.outQty += Number(row.outQty || 0);
+        acc.adjQty += Number(row.adjQty || 0);
+        acc.saldo = Number(row.saldo || acc.saldo || 0);
+        return acc;
+      },
+      { inQty: 0, outQty: 0, adjQty: 0, saldo: Number(item.opening || 0) }
+    );
+
+    divisionMap.get(divisionName).items.push({
+      itemName: item.item_name || '-',
+      expiryDate: formatMutationExportDate(item.expiry_date),
+      groupName: item.group_name || '-',
+      rows: normalizedRows,
+      totals,
+    });
+  });
+
+  return sections;
+}
+
+async function exportMutationExcel(res, filename, companyName, startDate, endDate, groupedRows) {
+  const workbook = new ExcelJS.Workbook();
+  const sheet = workbook.addWorksheet('Mutasi');
+  const columns = [
+    { key: 'date', width: 13 },
+    { key: 'note', width: 28 },
+    { key: 'inQty', width: 10 },
+    { key: 'outQty', width: 10 },
+    { key: 'adjQty', width: 10 },
+    { key: 'saldo', width: 10 },
+    { key: 'unit', width: 12 },
+    { key: 'createdBy', width: 18 },
+    { key: 'createdAt', width: 14 },
+  ];
+  sheet.columns = columns;
+  sheet.pageSetup = {
+    orientation: 'landscape',
+    paperSize: 9,
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+  };
+  sheet.views = [{ showGridLines: true }];
+
+  const sections = normalizeMutationRows(groupedRows);
+
+  let rowIndex = 1;
+  const lastCol = 'I';
+  sheet.mergeCells(`A${rowIndex}:${lastCol}${rowIndex}`);
+  sheet.getCell(`A${rowIndex}`).value = `(${String(companyName || '-').toUpperCase()})`;
+  sheet.getCell(`A${rowIndex}`).font = { bold: true, size: 14 };
+  sheet.getCell(`A${rowIndex}`).alignment = { horizontal: 'center' };
+  rowIndex += 1;
+  sheet.mergeCells(`A${rowIndex}:${lastCol}${rowIndex}`);
+  sheet.getCell(`A${rowIndex}`).value = `(PERIODE ${formatMutationExportDate(startDate)} - ${formatMutationExportDate(endDate)})`;
+  sheet.getCell(`A${rowIndex}`).font = { bold: true, size: 12 };
+  sheet.getCell(`A${rowIndex}`).alignment = { horizontal: 'center' };
+  rowIndex += 2;
+
+  const headerLabels = [
+    'TANGGAL',
+    'KETERANGAN (CATATAN)',
+    'IN',
+    'OUT',
+    'ADJ',
+    'SALDO',
+    'SATUAN',
+    'DIBUAT',
+    'TANGGAL BUAT',
+  ];
+
+  const thinBorder = {
+    top: { style: 'thin' },
+    left: { style: 'thin' },
+    bottom: { style: 'thin' },
+    right: { style: 'thin' },
+  };
+
+  sections.forEach((section) => {
+    sheet.getCell(`A${rowIndex}`).value = 'DIVISI :';
+    sheet.getCell(`A${rowIndex}`).font = { bold: true, size: 12 };
+    sheet.getCell(`B${rowIndex}`).value = section.divisionName;
+    sheet.getCell(`B${rowIndex}`).font = { bold: true, size: 12 };
+    rowIndex += 2;
+
+    section.items.forEach((itemSection) => {
+      sheet.getCell(`A${rowIndex}`).value = 'NAMA :';
+      sheet.getCell(`A${rowIndex}`).font = { bold: true };
+      sheet.getCell(`B${rowIndex}`).value = itemSection.itemName;
+      sheet.getCell(`B${rowIndex}`).font = { bold: true };
+      sheet.getCell(`G${rowIndex}`).value = 'Jenis Barang :';
+      sheet.getCell(`G${rowIndex}`).font = { bold: true };
+      sheet.getCell(`H${rowIndex}`).value = itemSection.groupName;
+      sheet.getCell(`H${rowIndex}`).font = { bold: true };
+      sheet.mergeCells(`H${rowIndex}:I${rowIndex}`);
+
+      rowIndex += 1;
+      sheet.getCell(`A${rowIndex}`).value = 'EXP DATE :';
+      sheet.getCell(`A${rowIndex}`).font = { bold: true };
+      sheet.getCell(`B${rowIndex}`).value = itemSection.expiryDate;
+      sheet.getCell(`B${rowIndex}`).font = { bold: true };
+      rowIndex += 1;
+
+      const headerRow = sheet.getRow(rowIndex);
+      headerLabels.forEach((label, idx) => {
+        const cell = headerRow.getCell(idx + 1);
+        cell.value = label;
+        cell.font = { bold: true, size: 10 };
+        cell.alignment = { horizontal: idx === 2 || idx === 3 || idx === 4 || idx === 5 ? 'center' : 'left' };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFEFEFEF' },
+        };
+        cell.border = thinBorder;
+      });
+      rowIndex += 1;
+
+      itemSection.rows.forEach((entry) => {
+        const row = sheet.getRow(rowIndex);
+        const values = [
+          entry.date,
+          entry.note,
+          entry.inQty ? Number(entry.inQty) : '',
+          entry.outQty ? Number(entry.outQty) : '',
+          entry.adjQty ? Number(entry.adjQty) : '',
+          Number(entry.saldo || 0),
+          entry.unit,
+          entry.createdBy,
+          entry.createdAt,
+        ];
+        values.forEach((value, idx) => {
+          const cell = row.getCell(idx + 1);
+          cell.value = value;
+          cell.border = thinBorder;
+          cell.alignment = {
+            horizontal: idx >= 2 && idx <= 5 ? 'center' : 'left',
+          };
+        });
+        rowIndex += 1;
+      });
+
+      const totalRow = sheet.getRow(rowIndex);
+      totalRow.getCell(2).value = 'TOTAL';
+      totalRow.getCell(2).font = { bold: true };
+      totalRow.getCell(3).value = Number(itemSection.totals.inQty || 0);
+      totalRow.getCell(4).value = Number(itemSection.totals.outQty || 0);
+      totalRow.getCell(5).value = Number(itemSection.totals.adjQty || 0);
+      totalRow.getCell(6).value = Number(itemSection.totals.saldo || 0);
+      for (let idx = 1; idx <= 9; idx += 1) {
+        const cell = totalRow.getCell(idx);
+        cell.font = { bold: true };
+        cell.border = thinBorder;
+        cell.alignment = { horizontal: idx >= 3 && idx <= 6 ? 'center' : 'left' };
+      }
+      rowIndex += 2;
+    });
+  });
+
+  [3, 4, 5, 6].forEach((idx) => {
+    sheet.getColumn(idx).numFmt = '#,##0.##';
+  });
+
+  res.setHeader(
+    'Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+  );
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}.xlsx"`);
+  await workbook.xlsx.write(res);
+  res.end();
+}
+
+function exportMutationPdf(res, filename, title, companyName, startDate, endDate, groupedRows) {
+  const doc = new PDFDocument({
+    margin: 24,
+    size: 'A4',
+    layout: 'landscape',
+  });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}.pdf"`);
+  doc.pipe(res);
+
+  const sections = normalizeMutationRows(groupedRows);
+  const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+  const startX = doc.page.margins.left;
+  const columns = [
+    { label: 'TANGGAL', width: 58, align: 'left' },
+    { label: 'KETERANGAN (CATATAN)', width: 170, align: 'left' },
+    { label: 'IN', width: 42, align: 'center' },
+    { label: 'OUT', width: 42, align: 'center' },
+    { label: 'ADJ', width: 42, align: 'center' },
+    { label: 'SALDO', width: 50, align: 'center' },
+    { label: 'SATUAN', width: 48, align: 'left' },
+    { label: 'DIBUAT', width: 70, align: 'left' },
+    { label: 'TANGGAL BUAT', width: 62, align: 'left' },
+  ];
+
+  const drawRow = (y, values, options = {}) => {
+    let currentX = startX;
+    let rowHeight = 18;
+    values.forEach((value, idx) => {
+      const text = value === null || value === undefined ? '' : String(value);
+      const height = doc.heightOfString(text, {
+        width: columns[idx].width - 6,
+        align: columns[idx].align,
+      }) + 8;
+      rowHeight = Math.max(rowHeight, height);
+    });
+
+    values.forEach((value, idx) => {
+      doc.rect(currentX, y, columns[idx].width, rowHeight).stroke('#444');
+      if (options.fillHeader) {
+        doc.save();
+        doc.rect(currentX, y, columns[idx].width, rowHeight).fillAndStroke('#efefef', '#444');
+        doc.restore();
+      }
+      doc
+        .font(options.bold ? 'Helvetica-Bold' : 'Helvetica')
+        .fontSize(options.fontSize || 8)
+        .fillColor('#111')
+        .text(value === null || value === undefined ? '' : String(value), currentX + 3, y + 4, {
+          width: columns[idx].width - 6,
+          align: columns[idx].align,
+        });
+      currentX += columns[idx].width;
+    });
+
+    return rowHeight;
+  };
+
+  const pageBottom = () => doc.page.height - doc.page.margins.bottom;
+  const addMutationPage = () => {
+    doc.addPage({ size: 'A4', layout: 'landscape', margin: 24 });
+    return doc.y;
+  };
+
+  doc.font('Helvetica-Bold').fontSize(14).text(`(${String(companyName || '-').toUpperCase()})`, {
+    align: 'center',
+  });
+  doc.moveDown(0.2);
+  doc.font('Helvetica-Bold').fontSize(12).text(`(PERIODE ${formatMutationExportDate(startDate)} - ${formatMutationExportDate(endDate)})`, {
+    align: 'center',
+  });
+  doc.moveDown(0.8);
+
+  const drawItemHeader = (sectionName, itemSection, includeDivisionTitle = false) => {
+    if (includeDivisionTitle) {
+      doc.font('Helvetica-Bold').fontSize(11).text(`DIVISI: ${sectionName}`, startX, doc.y);
+      doc.moveDown(0.7);
+    }
+    const topY = doc.y;
+    doc.font('Helvetica-Bold').fontSize(9).text('NAMA:', startX, topY);
+    doc.font('Helvetica-Bold').fontSize(9).text(itemSection.itemName, startX + 48, topY);
+    doc.font('Helvetica-Bold').fontSize(9).text('Jenis Barang :', startX + 430, topY);
+    doc.font('Helvetica-Bold').fontSize(9).text(itemSection.groupName, startX + 515, topY);
+
+    const secondY = topY + 14;
+    doc.font('Helvetica-Bold').fontSize(9).text('EXP DATE:', startX, secondY);
+    doc.font('Helvetica-Bold').fontSize(9).text(itemSection.expiryDate, startX + 48, secondY);
+
+    let y = secondY + 18;
+    y += drawRow(
+      y,
+      columns.map((col) => col.label),
+      { fillHeader: true, bold: true, fontSize: 8 }
+    );
+    return y;
+  };
+
+  sections.forEach((section) => {
+    if (doc.y + 50 > pageBottom()) {
+      addMutationPage();
+    }
+    doc.font('Helvetica-Bold').fontSize(11).text(`DIVISI: ${section.divisionName}`, startX, doc.y);
+    doc.moveDown(0.7);
+
+    section.items.forEach((itemSection) => {
+      if (doc.y + 110 > pageBottom()) {
+        addMutationPage();
+        doc.font('Helvetica-Bold').fontSize(11).text(`DIVISI: ${section.divisionName}`, startX, doc.y);
+        doc.moveDown(0.7);
+      }
+      let y = drawItemHeader(section.divisionName, itemSection, false);
+
+      itemSection.rows.forEach((entry) => {
+        if (y + 22 > pageBottom()) {
+          addMutationPage();
+          y = drawItemHeader(section.divisionName, itemSection, true);
+        }
+        const values = [
+          entry.date,
+          entry.note,
+          entry.inQty ? formatMutationQty(entry.inQty) : '',
+          entry.outQty ? formatMutationQty(entry.outQty) : '',
+          entry.adjQty ? formatMutationQty(entry.adjQty) : '',
+          formatMutationQty(entry.saldo),
+          entry.unit,
+          entry.createdBy,
+          entry.createdAt,
+        ];
+        y += drawRow(y, values, { fontSize: 8 });
+      });
+
+      if (y + 22 > pageBottom()) {
+        addMutationPage();
+        y = drawItemHeader(section.divisionName, itemSection, true);
+      }
+      const totalValues = [
+        '',
+        'TOTAL',
+        formatMutationQty(itemSection.totals.inQty),
+        formatMutationQty(itemSection.totals.outQty),
+        formatMutationQty(itemSection.totals.adjQty),
+        formatMutationQty(itemSection.totals.saldo),
+        '',
+        '',
+        '',
+      ];
+      y += drawRow(y, totalValues, { bold: true, fontSize: 8 });
+      doc.y = y + 16;
+    });
+  });
+
+  doc.end();
 }
 
 function exportPdf(res, filename, title, columns, rows, options = {}) {
@@ -155,4 +536,10 @@ function exportPdf(res, filename, title, columns, rows, options = {}) {
   doc.end();
 }
 
-module.exports = { exportCsv, exportExcel, exportPdf };
+module.exports = {
+  exportCsv,
+  exportExcel,
+  exportPdf,
+  exportMutationExcel,
+  exportMutationPdf,
+};

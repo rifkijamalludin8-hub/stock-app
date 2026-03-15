@@ -2,7 +2,13 @@ const express = require('express');
 const dayjs = require('dayjs');
 const { requireCompany, requireAuth, canSeePrice } = require('../utils/auth');
 const { divisionAccess, buildDivisionFilter } = require('../utils/division');
-const { exportCsv, exportExcel, exportPdf } = require('../utils/export');
+const {
+  exportCsv,
+  exportExcel,
+  exportPdf,
+  exportMutationExcel,
+  exportMutationPdf,
+} = require('../utils/export');
 const { formatPrice, formatDateTime } = require('../utils/format');
 const { getReportRows } = require('../utils/report');
 const { getCurrentStockRows } = require('../utils/stock');
@@ -241,7 +247,7 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
     if (!start || !end) return res.status(400).send('Start/end wajib diisi');
     title = 'Mutasi Item';
     filename = `mutasi-item-${start}-sd-${end}`;
-    const { flatRows } = await getMutationRows(db, companyId, start, end, req.divisionIds, itemId);
+    const mutationData = await getMutationRows(db, companyId, start, end, req.divisionIds, itemId);
     columns = [
       { header: 'Item', key: 'item_label', width: 36, pdfWidth: 140 },
       { header: 'Tanggal', key: 'event_date', width: 14, pdfWidth: 60 },
@@ -252,7 +258,7 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
       { header: 'Dibuat Oleh', key: 'created_by_name', width: 20, pdfWidth: 70 },
       { header: 'Dibuat', key: 'created_at', width: 20, pdfWidth: 70, format: formatDateTime },
     ];
-    rows = flatRows;
+    rows = mutationData.flatRows;
     pdfOptions = {
       layout: 'landscape',
       bodyFontSize: 7.5,
@@ -263,6 +269,20 @@ router.get('/export/:resource', requireCompany, requireAuth, divisionAccess, asy
         `Periode: ${start} s/d ${end}`,
       ],
     };
+    if (format === 'xlsx') {
+      return exportMutationExcel(res, filename, req.company ? req.company.name : '-', start, end, mutationData.grouped);
+    }
+    if (format === 'pdf') {
+      return exportMutationPdf(
+        res,
+        filename,
+        title,
+        req.company ? req.company.name : '-',
+        start,
+        end,
+        mutationData.grouped
+      );
+    }
   }
 
   if (columns.length === 0) return res.status(404).send('Resource tidak ditemukan');
